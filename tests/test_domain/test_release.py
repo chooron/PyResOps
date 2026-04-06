@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from res_ops.domain.release import SegmentedReleaseSchedule
+from pyresops.domain.release import SegmentedReleaseSchedule
 
 
 def test_schedule_length_validation() -> None:

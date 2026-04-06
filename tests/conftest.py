@@ -4,13 +4,13 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.domain.reservoir import (
+from pyresops.domain.reservoir import (
     DischargeCapacity,
     LevelStorageCurve,
     ReservoirSpec,
     ReservoirState,
 )
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
 
 
 @pytest.fixture

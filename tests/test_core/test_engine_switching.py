@@ -4,9 +4,9 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.core import SimulationEngine
-from res_ops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
-from res_ops.modules import ConstantReleaseModule, InflowDrivenModule
+from pyresops.core import SimulationEngine
+from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
+from pyresops.modules import ConstantReleaseModule, InflowDrivenModule
 
 
 def test_level_threshold_switch(sample_reservoir_spec, sample_initial_state, sample_forecast):

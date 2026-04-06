@@ -66,7 +66,7 @@ explanation_service = ExplanationService()
 optimization_service = OptimizationService(reservoir_spec, program_service)
 data_dir = Path("data")
 data_dir.mkdir(parents=True, exist_ok=True)
-repository = Repository(str(data_dir / "res_ops.db"))
+repository = Repository(str(data_dir / "pyresops.db"))
 rolling_ops_service = RollingOpsService(
     program_service=program_service,
     simulation_service=simulation_service,

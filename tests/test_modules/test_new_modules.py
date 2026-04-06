@@ -2,7 +2,7 @@
 
 import pytest
 
-from res_ops.modules import (
+from pyresops.modules import (
     CombinedDrivenModule,
     LevelTrackingModule,
     ExternalConstraintModule,
@@ -35,7 +35,7 @@ class TestCombinedDrivenModule:
 
     def test_high_storage(self, sample_reservoir_spec):
         """高库容时出流应偏高."""
-        from res_ops.domain.reservoir import ReservoirState
+        from pyresops.domain.reservoir import ReservoirState
         from datetime import datetime
 
         state = ReservoirState(

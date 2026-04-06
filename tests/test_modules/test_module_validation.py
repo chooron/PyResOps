@@ -2,7 +2,7 @@
 
 import pytest
 
-from res_ops.modules import (
+from pyresops.modules import (
     ConstantReleaseModule,
     InflowDrivenModule,
     StorageDrivenModule,
@@ -25,14 +25,14 @@ class TestConstantReleaseValidation:
         m = ConstantReleaseModule(parameters={"target_flow": 0.0})
         assert (
             m.compute_outflow(
-                __import__("res_ops.domain.reservoir", fromlist=["ReservoirState"]).ReservoirState(
+                __import__("pyresops.domain.reservoir", fromlist=["ReservoirState"]).ReservoirState(
                     timestamp=__import__("datetime").datetime(2024, 1, 1),
                     level=165,
                     storage=30,
                     inflow=8000,
                     outflow=8000,
                 ),
-                __import__("res_ops.domain.reservoir", fromlist=["ReservoirSpec"]).ReservoirSpec(
+                __import__("pyresops.domain.reservoir", fromlist=["ReservoirSpec"]).ReservoirSpec(
                     id="x",
                     name="x",
                     dead_level=150,
@@ -43,13 +43,13 @@ class TestConstantReleaseValidation:
                     total_capacity=39.3,
                     flood_capacity=22,
                     level_storage_curve=__import__(
-                        "res_ops.domain.reservoir", fromlist=["LevelStorageCurve"]
+                        "pyresops.domain.reservoir", fromlist=["LevelStorageCurve"]
                     ).LevelStorageCurve(
                         levels=[135, 185],
                         storages=[0, 51.6],
                     ),
                     discharge_capacity=__import__(
-                        "res_ops.domain.reservoir", fromlist=["DischargeCapacity"]
+                        "pyresops.domain.reservoir", fromlist=["DischargeCapacity"]
                     ).DischargeCapacity(
                         levels=[135, 185],
                         max_discharges=[0, 30000],

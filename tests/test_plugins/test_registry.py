@@ -2,8 +2,8 @@
 
 import pytest
 
-from res_ops.plugins.base import PluginBase
-from res_ops.plugins.registry import PluginRegistry
+from pyresops.plugins.base import PluginBase
+from pyresops.plugins.registry import PluginRegistry
 
 
 class DummyPlugin(PluginBase):

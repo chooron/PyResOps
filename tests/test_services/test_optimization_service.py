@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.services import OptimizationService, ProgramService
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.services import OptimizationService, ProgramService
 
 
 class _StubBackend:

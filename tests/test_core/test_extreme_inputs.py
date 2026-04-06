@@ -4,10 +4,10 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.core import SimulationEngine
-from res_ops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.modules import (
+from pyresops.core import SimulationEngine
+from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.modules import (
     ConstantReleaseModule,
     InflowDrivenModule,
     StorageDrivenModule,
@@ -16,7 +16,7 @@ from res_ops.modules import (
 
 
 def _spec():
-    from res_ops.domain.reservoir import ReservoirSpec, LevelStorageCurve, DischargeCapacity
+    from pyresops.domain.reservoir import ReservoirSpec, LevelStorageCurve, DischargeCapacity
 
     return ReservoirSpec(
         id="extreme",
@@ -40,7 +40,7 @@ def _spec():
 
 
 def _state(level, inflow):
-    from res_ops.domain.reservoir import ReservoirState
+    from pyresops.domain.reservoir import ReservoirState
 
     spec = _spec()
     storage = spec.level_storage_curve.get_storage(level)
@@ -177,7 +177,7 @@ class TestHydraulicsBoundary:
     """水力学边界"""
 
     def test_storage_clamped_to_min(self):
-        from res_ops.core import HydraulicsCalculator
+        from pyresops.core import HydraulicsCalculator
 
         spec = _spec()
         h = HydraulicsCalculator(spec)
@@ -188,7 +188,7 @@ class TestHydraulicsBoundary:
         assert next_state.storage >= min_storage
 
     def test_storage_clamped_to_max(self):
-        from res_ops.core import HydraulicsCalculator
+        from pyresops.core import HydraulicsCalculator
 
         spec = _spec()
         h = HydraulicsCalculator(spec)
@@ -198,7 +198,7 @@ class TestHydraulicsBoundary:
         assert next_state.storage <= spec.total_capacity
 
     def test_validate_outflow_at_boundary(self):
-        from res_ops.core import HydraulicsCalculator
+        from pyresops.core import HydraulicsCalculator
 
         spec = _spec()
         h = HydraulicsCalculator(spec)
@@ -208,7 +208,7 @@ class TestHydraulicsBoundary:
         assert adjusted == pytest.approx(max_d)
 
     def test_validate_outflow_slightly_over(self):
-        from res_ops.core import HydraulicsCalculator
+        from pyresops.core import HydraulicsCalculator
 
         spec = _spec()
         h = HydraulicsCalculator(spec)
@@ -223,7 +223,7 @@ class TestStorageDrivenBoundaries:
 
     def test_zero_storage_ratio(self):
         spec = _spec()
-        from res_ops.domain.reservoir import ReservoirState
+        from pyresops.domain.reservoir import ReservoirState
 
         state = ReservoirState(
             timestamp=datetime(2024, 7, 1),
@@ -244,7 +244,7 @@ class TestStorageDrivenBoundaries:
 
     def test_full_storage_ratio(self):
         spec = _spec()
-        from res_ops.domain.reservoir import ReservoirState
+        from pyresops.domain.reservoir import ReservoirState
 
         state = ReservoirState(
             timestamp=datetime(2024, 7, 1),
@@ -269,7 +269,7 @@ class TestLevelTrackingBoundary:
 
     def test_exact_target(self):
         spec = _spec()
-        from res_ops.domain.reservoir import ReservoirState
+        from pyresops.domain.reservoir import ReservoirState
 
         state = ReservoirState(
             timestamp=datetime(2024, 7, 1),

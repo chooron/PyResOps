@@ -4,9 +4,9 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.core import SimulationEngine
-from res_ops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance
-from res_ops.modules import ConstantReleaseModule
+from pyresops.core import SimulationEngine
+from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance
+from pyresops.modules import ConstantReleaseModule
 
 
 def test_simulation_engine_basic(

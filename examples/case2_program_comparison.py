@@ -10,16 +10,16 @@
 
 from datetime import datetime, timedelta
 
-from res_ops.domain.reservoir import (
+from pyresops.domain.reservoir import (
     ReservoirSpec,
     ReservoirState,
     LevelStorageCurve,
     DischargeCapacity,
 )
-from res_ops.domain.program import TimeHorizon
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.services import (
+from pyresops.domain.program import TimeHorizon
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.services import (
     SnapshotService,
     ProgramService,
     SimulationService,

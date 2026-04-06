@@ -2,10 +2,10 @@
 
 from datetime import datetime, timedelta
 
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.domain.program import DispatchProgram, ModuleInstance, TimeHorizon
-from res_ops.modules import FlexibleReleaseModule
-from res_ops.services import SimulationService, ProgramService
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.domain.program import DispatchProgram, ModuleInstance, TimeHorizon
+from pyresops.modules import FlexibleReleaseModule
+from pyresops.services import SimulationService, ProgramService
 
 
 def test_flexible_release_uses_step_time_not_initial_timestamp(
@@ -94,7 +94,7 @@ def test_step_state_timestamp_tracks_current_time(
             return super().compute_outflow(state, spec, inflow_forecast)
 
     recorder = RecorderModule(program.module_sequence[0].parameters)
-    from res_ops.domain.release import SegmentedReleaseSchedule
+    from pyresops.domain.release import SegmentedReleaseSchedule
 
     schedule = SegmentedReleaseSchedule.from_module_parameters(
         parameters=program.module_sequence[0].parameters,
@@ -114,7 +114,7 @@ def test_step_state_timestamp_tracks_current_time(
         ],
     )
 
-    from res_ops.core import SimulationEngine
+    from pyresops.core import SimulationEngine
 
     engine = SimulationEngine(sample_reservoir_spec)
     engine.simulate(

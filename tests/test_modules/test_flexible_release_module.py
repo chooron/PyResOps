@@ -4,10 +4,10 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from res_ops.domain.program import TimeHorizon
-from res_ops.domain.release import SegmentedReleaseSchedule
-from res_ops.modules import FlexibleReleaseModule
-from res_ops.services import ProgramService
+from pyresops.domain.program import TimeHorizon
+from pyresops.domain.release import SegmentedReleaseSchedule
+from pyresops.modules import FlexibleReleaseModule
+from pyresops.services import ProgramService
 
 
 def _make_schedule() -> SegmentedReleaseSchedule:
@@ -99,7 +99,7 @@ def test_program_service_rejects_multiple_flexible_modules() -> None:
 
 
 def test_program_service_rejects_flexible_with_switch_conditions() -> None:
-    from res_ops.domain.program import SwitchCondition
+    from pyresops.domain.program import SwitchCondition
 
     service = ProgramService()
     start = datetime(2024, 7, 1, 0, 0, 0)

@@ -4,10 +4,10 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.core import SimulationEngine
-from res_ops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.modules import ConstantReleaseModule, InflowDrivenModule
+from pyresops.core import SimulationEngine
+from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.modules import ConstantReleaseModule, InflowDrivenModule
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────

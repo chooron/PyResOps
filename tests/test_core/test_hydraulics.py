@@ -2,7 +2,7 @@
 
 import pytest
 
-from res_ops.core import HydraulicsCalculator
+from pyresops.core import HydraulicsCalculator
 
 
 def test_hydraulics_level_storage(sample_reservoir_spec):

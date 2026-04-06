@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from res_ops.core import ConstraintValidator
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.domain.result import SimulationResult, StateSnapshot
+from pyresops.core import ConstraintValidator
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.domain.result import SimulationResult, StateSnapshot
 
 
 def test_constraint_validator_level_max():

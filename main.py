@@ -1,6 +1,6 @@
 """Main entry point for res-ops-mcp."""
 
-from res_ops.server import mcp
+from pyresops.server import mcp
 
 
 def main():

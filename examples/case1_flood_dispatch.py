@@ -10,21 +10,20 @@
 6. 约束校核
 7. 评估与解释
 """
-
 from datetime import datetime, timedelta
 
-from res_ops.domain.reservoir import (
+from pyresops.domain.reservoir import (
     ReservoirSpec,
     ReservoirState,
     LevelStorageCurve,
     DischargeCapacity,
 )
-from res_ops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.core import SimulationEngine, ConstraintValidator
-from res_ops.modules import ConstantReleaseModule, StorageDrivenModule, LevelTrackingModule
-from res_ops.services import EvaluationService, ExplanationService
+from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.core import SimulationEngine, ConstraintValidator
+from pyresops.modules import ConstantReleaseModule, StorageDrivenModule, LevelTrackingModule
+from pyresops.services import EvaluationService, ExplanationService
 
 
 def main():

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from res_ops.storage import Repository
+from pyresops.storage import Repository
 
 
 @pytest.fixture

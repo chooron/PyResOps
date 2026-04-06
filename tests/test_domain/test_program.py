@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from res_ops.domain.program import TimeHorizon, ModuleInstance, DispatchProgram
+from pyresops.domain.program import TimeHorizon, ModuleInstance, DispatchProgram
 
 
 def test_time_horizon():

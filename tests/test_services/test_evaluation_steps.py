@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from res_ops.services import EvaluationService
-from res_ops.domain.result import SimulationResult, StateSnapshot
+from pyresops.services import EvaluationService
+from pyresops.domain.result import SimulationResult, StateSnapshot
 
 
 def _make_sim_result(max_level, min_level):
@@ -54,7 +54,7 @@ def test_step_scores_excluded_by_default(sample_reservoir_spec):
 
 def test_step_scores_with_constraints(sample_reservoir_spec):
     """带约束的逐步评分."""
-    from res_ops.domain.constraint import Constraint, ConstraintSet
+    from pyresops.domain.constraint import Constraint, ConstraintSet
 
     service = EvaluationService(sample_reservoir_spec)
     result = _make_sim_result(170.0, 160.0)

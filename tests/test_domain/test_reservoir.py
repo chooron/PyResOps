@@ -2,7 +2,7 @@
 
 import pytest
 
-from res_ops.domain.reservoir import LevelStorageCurve, DischargeCapacity
+from pyresops.domain.reservoir import LevelStorageCurve, DischargeCapacity
 
 
 def test_level_storage_curve():

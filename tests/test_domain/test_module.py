@@ -2,7 +2,7 @@
 
 import pytest
 
-from res_ops.modules import ConstantReleaseModule, InflowDrivenModule, StorageDrivenModule
+from pyresops.modules import ConstantReleaseModule, InflowDrivenModule, StorageDrivenModule
 
 
 def test_constant_release_module(sample_reservoir_spec, sample_initial_state):

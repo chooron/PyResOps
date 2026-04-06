@@ -2,14 +2,14 @@
 
 from datetime import datetime
 
-from res_ops.services import (
+from pyresops.services import (
     ProgramService,
     SnapshotService,
     SimulationService,
     EvaluationService,
     ExplanationService,
 )
-from res_ops.domain.program import TimeHorizon
+from pyresops.domain.program import TimeHorizon
 
 
 def test_end_to_end_workflow(sample_reservoir_spec, sample_forecast):

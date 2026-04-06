@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.services import (
+from pyresops.services import (
     SnapshotService,
     ProgramService,
     SimulationService,
@@ -13,10 +13,10 @@ from res_ops.services import (
     OptimizationService,
     RollingOpsService,
 )
-from res_ops.domain.program import TimeHorizon
-from res_ops.domain.reservoir import DischargeCapacity, LevelStorageCurve, ReservoirSpec
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.storage import Repository
+from pyresops.domain.program import TimeHorizon
+from pyresops.domain.reservoir import DischargeCapacity, LevelStorageCurve, ReservoirSpec
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.storage import Repository
 
 
 @pytest.fixture
@@ -174,7 +174,7 @@ class TestSimulationToolErrors:
 class TestEvaluationToolErrors:
     def test_evaluate_flood_control_above_design(self, services):
         """max_level > design_flood_level -> 防洪分为 0"""
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         ev = services["evaluation"]
         result = SimulationResult(
@@ -199,7 +199,7 @@ class TestEvaluationToolErrors:
 
     def test_evaluate_water_supply_below_dead(self, services):
         """min_level < dead_level -> 供水分为 0"""
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         ev = services["evaluation"]
         result = SimulationResult(
@@ -224,7 +224,7 @@ class TestEvaluationToolErrors:
 
     def test_evaluate_flood_between_limit_and_design(self, services):
         """flood_limit < max_level < design -> 部分扣分"""
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         ev = services["evaluation"]
         result = SimulationResult(
@@ -249,7 +249,7 @@ class TestEvaluationToolErrors:
 
     def test_evaluate_water_supply_between_dead_and_normal(self, services):
         """dead < min_level < normal -> 部分评分"""
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         ev = services["evaluation"]
         result = SimulationResult(
@@ -274,8 +274,8 @@ class TestEvaluationToolErrors:
 
     def test_evaluate_with_violation_penalty(self, services):
         """有约束违反时综合分打折"""
-        from res_ops.domain.result import SimulationResult, StateSnapshot
-        from res_ops.domain.constraint import Constraint, ConstraintSet
+        from pyresops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.constraint import Constraint, ConstraintSet
 
         ev = services["evaluation"]
         result = SimulationResult(
@@ -328,7 +328,7 @@ class TestExplanationToolErrors:
 
     def test_explain_with_simulation_only(self, services):
         """有仿真结果无评估结果"""
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         ps = services["program"]
         ex = services["explanation"]
@@ -366,7 +366,7 @@ class TestExplanationToolErrors:
 class TestCompareProgramsEdge:
     def test_compare_empty_list(self):
         """空列表比较"""
-        from res_ops.services import EvaluationService
+        from pyresops.services import EvaluationService
 
         # 模拟 compare_programs 逻辑
         comparisons = []

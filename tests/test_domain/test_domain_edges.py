@@ -2,12 +2,12 @@
 
 import pytest
 
-from res_ops.domain.reservoir import LevelStorageCurve, DischargeCapacity, ReservoirSpec
-from res_ops.domain.forecast import ForecastSeries, ForecastBundle
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.domain.objective import Objective, ObjectiveSet
-from res_ops.domain.result import SimulationResult, StateSnapshot
-from res_ops.domain.program import TimeHorizon
+from pyresops.domain.reservoir import LevelStorageCurve, DischargeCapacity, ReservoirSpec
+from pyresops.domain.forecast import ForecastSeries, ForecastBundle
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.domain.objective import Objective, ObjectiveSet
+from pyresops.domain.result import SimulationResult, StateSnapshot
+from pyresops.domain.program import TimeHorizon
 from datetime import datetime
 
 

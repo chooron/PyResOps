@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.services import (
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.services import (
     EvaluationService,
     OptimizationService,
     ProgramService,
@@ -13,7 +13,7 @@ from res_ops.services import (
     SimulationService,
     SnapshotService,
 )
-from res_ops.storage import Repository
+from pyresops.storage import Repository
 
 
 def _build_forecast(start: datetime, base: float = 8000.0) -> ForecastBundle:

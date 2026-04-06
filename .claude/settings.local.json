@@ -5,7 +5,12 @@
       "Bash(uv add:*)",
       "Bash(uv run pytest:*)",
       "Bash(timeout 5 uv run:*)",
-      "Bash(exit 0)"
+      "Bash(exit 0)",
+      "Bash(python rename_imports.py)",
+      "Bash(pip install:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(uv pip:*)",
+      "Bash(.venv/Scripts/python.exe -c \"import pyresops; print\\(pyresops.__file__\\)\")"
     ]
   }
 }

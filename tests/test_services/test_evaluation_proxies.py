@@ -2,9 +2,9 @@
 
 from datetime import datetime, timedelta
 
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.domain.result import SimulationResult, StateSnapshot
-from res_ops.services import EvaluationService
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.domain.result import SimulationResult, StateSnapshot
+from pyresops.services import EvaluationService
 
 
 def _build_result(levels: list[float], outflows: list[float]) -> SimulationResult:

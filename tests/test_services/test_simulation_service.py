@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from res_ops.services import SimulationService, ProgramService
-from res_ops.domain.program import TimeHorizon
+from pyresops.services import SimulationService, ProgramService
+from pyresops.domain.program import TimeHorizon
 
 
 def test_simulation_service(sample_reservoir_spec, sample_initial_state, sample_forecast):

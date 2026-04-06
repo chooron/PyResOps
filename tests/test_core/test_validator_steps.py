@@ -4,9 +4,9 @@ from datetime import datetime
 
 import pytest
 
-from res_ops.core import ConstraintValidator
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.domain.result import SimulationResult, StateSnapshot
+from pyresops.core import ConstraintValidator
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.domain.result import SimulationResult, StateSnapshot
 
 
 def _result(snapshots=None, max_level=165, min_level=160, avg_outflow=8000):

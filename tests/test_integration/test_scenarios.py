@@ -4,23 +4,23 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from res_ops.core import SimulationEngine, ConstraintValidator
-from res_ops.domain.reservoir import (
+from pyresops.core import SimulationEngine, ConstraintValidator
+from pyresops.domain.reservoir import (
     ReservoirSpec,
     ReservoirState,
     LevelStorageCurve,
     DischargeCapacity,
 )
-from res_ops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
-from res_ops.domain.forecast import ForecastBundle, ForecastSeries
-from res_ops.domain.constraint import Constraint, ConstraintSet
-from res_ops.modules import (
+from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance, SwitchCondition
+from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.domain.constraint import Constraint, ConstraintSet
+from pyresops.modules import (
     ConstantReleaseModule,
     InflowDrivenModule,
     StorageDrivenModule,
     LevelTrackingModule,
 )
-from res_ops.services import (
+from pyresops.services import (
     SnapshotService,
     ProgramService,
     SimulationService,
@@ -229,7 +229,7 @@ class TestScoreAccuracy:
     def test_perfect_flood_control(self, full_spec):
         """最高水位不超过汛限水位 -> 防洪分 100"""
         ev = EvaluationService(full_spec)
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         result = SimulationResult(
             program_id="perfect",
@@ -254,7 +254,7 @@ class TestScoreAccuracy:
     def test_perfect_water_supply(self, full_spec):
         """最低水位 >= 正常蓄水位 -> 供水分 100"""
         ev = EvaluationService(full_spec)
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         result = SimulationResult(
             program_id="perfect",
@@ -279,7 +279,7 @@ class TestScoreAccuracy:
     def test_step_score_monotonicity(self, full_spec):
         """水位越高, 风险分应越低"""
         ev = EvaluationService(full_spec)
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         snapshots = [
             StateSnapshot(
@@ -316,7 +316,7 @@ class TestScoreAccuracy:
             ]
         )
         ev = EvaluationService(full_spec)
-        from res_ops.domain.result import SimulationResult, StateSnapshot
+        from pyresops.domain.result import SimulationResult, StateSnapshot
 
         snapshots = [
             StateSnapshot(
