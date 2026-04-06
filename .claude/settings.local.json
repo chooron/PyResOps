@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv add:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(timeout 5 uv run:*)",
+      "Bash(exit 0)"
+    ]
+  }
+}
