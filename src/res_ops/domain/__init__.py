@@ -12,6 +12,7 @@ from .module import OperationModule, ModuleInfo
 from .constraint import ConstraintSet, Constraint
 from .objective import ObjectiveSet, Objective
 from .result import SimulationResult, EvaluationResult, StateSnapshot
+from .release import SegmentedReleaseSchedule
 
 __all__ = [
     "ReservoirSpec",
@@ -33,4 +34,5 @@ __all__ = [
     "SimulationResult",
     "EvaluationResult",
     "StateSnapshot",
+    "SegmentedReleaseSchedule",
 ]

@@ -121,23 +121,26 @@ class SimulationEngine:
         end_time = program.time_horizon.end
 
         while current_time <= end_time:
+            step_time = current_time
+            step_state = current_state.copy_with_update(timestamp=step_time)
+
             # 获取入流预报
-            inflow = inflow_map.get(current_time, current_state.inflow)
+            inflow = inflow_map.get(step_time, step_state.inflow)
 
             # 评估切换条件，决定当前激活模块
             if program.switch_conditions and current_module_type:
                 current_module_type = self._resolve_active_module(
-                    current_module_type, current_state, inflow, program.switch_conditions
+                    current_module_type, step_state, inflow, program.switch_conditions
                 )
 
             # 计算出库流量
             if current_module_type and current_module_type in modules:
                 module = modules[current_module_type]
-                outflow = module.compute_outflow(current_state, self.spec, inflow)
+                outflow = module.compute_outflow(step_state, self.spec, inflow)
 
                 # 泄流能力约束校核
                 is_valid, adjusted_outflow = self.hydraulics.validate_outflow(
-                    current_state.level, outflow
+                    step_state.level, outflow
                 )
                 outflow = adjusted_outflow
             else:
@@ -145,17 +148,15 @@ class SimulationEngine:
                 outflow = inflow
 
             # 水量平衡推进
-            next_state = self.hydraulics.water_balance_step(
-                current_state, inflow, outflow, time_step
-            )
+            next_state = self.hydraulics.water_balance_step(step_state, inflow, outflow, time_step)
             next_state = next_state.copy_with_update(active_module_id=current_module_type)
 
             # 记录快照
             snapshots.append(
                 StateSnapshot(
-                    timestamp=current_time,
-                    level=current_state.level,
-                    storage=current_state.storage,
+                    timestamp=step_time,
+                    level=step_state.level,
+                    storage=step_state.storage,
                     inflow=inflow,
                     outflow=outflow,
                     active_module=current_module_type,

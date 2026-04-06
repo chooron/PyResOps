@@ -81,6 +81,21 @@ class Repository:
             )
         """)
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS finalized_plans (
+                finalized_id TEXT PRIMARY KEY,
+                reservoir_id TEXT NOT NULL,
+                context_id TEXT NOT NULL,
+                program_id TEXT NOT NULL,
+                source_program_id TEXT NOT NULL,
+                supersedes_id TEXT,
+                version INTEGER NOT NULL,
+                data TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE (reservoir_id, context_id, version)
+            )
+        """)
+
         self._conn.commit()
 
     # ── Programs ──────────────────────────────────────────────
@@ -170,6 +185,15 @@ class Repository:
         )
         self._conn.commit()
 
+    def load_evaluation_result(self, program_id: str) -> dict[str, Any] | None:
+        """加载评估结果."""
+        cur = self._conn.cursor()
+        cur.execute("SELECT data FROM evaluation_results WHERE program_id = ?", (program_id,))
+        row = cur.fetchone()
+        if row:
+            return json.loads(row["data"])
+        return None
+
     # ── Snapshots ─────────────────────────────────────────────
 
     def save_snapshot(self, reservoir_id: str, state_data: dict[str, Any]) -> None:
@@ -237,6 +261,70 @@ class Repository:
         params.append(limit)
         cur.execute(query, params)
         return [dict(r) for r in cur.fetchall()]
+
+    # ── Finalized Plans (append-only) ─────────────────────────
+
+    def save_finalized_record(
+        self,
+        *,
+        finalized_id: str,
+        reservoir_id: str,
+        context_id: str,
+        program_id: str,
+        source_program_id: str,
+        supersedes_id: str | None,
+        version: int,
+        record_data: dict[str, Any],
+    ) -> None:
+        """Save append-only finalized plan record."""
+        cur = self._conn.cursor()
+        cur.execute(
+            """INSERT INTO finalized_plans
+               (finalized_id, reservoir_id, context_id, program_id, source_program_id,
+                supersedes_id, version, data, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                finalized_id,
+                reservoir_id,
+                context_id,
+                program_id,
+                source_program_id,
+                supersedes_id,
+                version,
+                json.dumps(record_data, default=str),
+                datetime.now().isoformat(),
+            ),
+        )
+        self._conn.commit()
+
+    def list_finalized_records(
+        self,
+        *,
+        reservoir_id: str | None = None,
+        context_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List finalized plan records in append-only history order."""
+        cur = self._conn.cursor()
+        query = "SELECT * FROM finalized_plans WHERE 1=1"
+        params: list[Any] = []
+
+        if reservoir_id:
+            query += " AND reservoir_id = ?"
+            params.append(reservoir_id)
+        if context_id:
+            query += " AND context_id = ?"
+            params.append(context_id)
+
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        cur.execute(query, params)
+        rows = [dict(row) for row in cur.fetchall()]
+
+        for row in rows:
+            row["data"] = json.loads(row["data"])
+
+        return rows
 
     # ── Cleanup ───────────────────────────────────────────────
 

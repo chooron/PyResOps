@@ -66,3 +66,4 @@ def test_module_listing(sample_reservoir_spec):
     assert "constant_release" in module_types
     assert "inflow_driven" in module_types
     assert "storage_driven" in module_types
+    assert "flexible_release" in module_types

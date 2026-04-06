@@ -30,6 +30,30 @@ class TestDuplicateWrites:
         repo.save_snapshot("r1", {"timestamp": "2024-07-01T00:00:00", "level": 200})
         # 不报错即通过 (INSERT OR REPLACE)
 
+    def test_finalized_records_do_not_overwrite(self, repo):
+        repo.save_finalized_record(
+            finalized_id="fin_1",
+            reservoir_id="r1",
+            context_id="ctx",
+            program_id="p1_final",
+            source_program_id="p1",
+            supersedes_id=None,
+            version=1,
+            record_data={"score": 70},
+        )
+        repo.save_finalized_record(
+            finalized_id="fin_2",
+            reservoir_id="r1",
+            context_id="ctx",
+            program_id="p2_final",
+            source_program_id="p2",
+            supersedes_id="fin_1",
+            version=2,
+            record_data={"score": 80},
+        )
+        records = repo.list_finalized_records(reservoir_id="r1", context_id="ctx")
+        assert len(records) == 2
+
 
 class TestEvaluationResultSave:
     def test_save_evaluation_result(self, repo):

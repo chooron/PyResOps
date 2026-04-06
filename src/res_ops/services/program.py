@@ -2,12 +2,14 @@
 
 from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
-from ..domain.program import DispatchProgram, ModuleInstance, TimeHorizon
+from ..domain.program import DispatchProgram, ModuleInstance, SwitchCondition, TimeHorizon
 from ..modules import (
     CombinedDrivenModule,
     ConstantReleaseModule,
     ExternalConstraintModule,
+    FlexibleReleaseModule,
     InflowDrivenModule,
     LevelTrackingModule,
     StorageDrivenModule,
@@ -27,6 +29,7 @@ class ProgramService:
             "combined_driven": CombinedDrivenModule,
             "level_tracking": LevelTrackingModule,
             "external_constraint": ExternalConstraintModule,
+            "flexible_release": FlexibleReleaseModule,
         }
 
     def create_program(
@@ -34,6 +37,9 @@ class ProgramService:
         name: str,
         time_horizon: TimeHorizon,
         module_configs: list[dict[str, Any]],
+        switch_conditions: list[SwitchCondition] | None = None,
+        metadata: dict[str, Any] | None = None,
+        program_id: str | None = None,
     ) -> DispatchProgram:
         """
         创建调度方案.
@@ -55,15 +61,30 @@ class ProgramService:
             for cfg in module_configs
         ]
 
+        resolved_switch_conditions = switch_conditions or []
         program = DispatchProgram(
-            id=f"prog_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            id=program_id or f"prog_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid4().hex[:8]}",
             name=name,
             time_horizon=time_horizon,
             module_sequence=module_sequence,
+            switch_conditions=resolved_switch_conditions,
+            metadata=metadata or {},
         )
+        self.validate_program(program)
 
         self._programs[program.id] = program
         return program
+
+    def validate_program(self, program: DispatchProgram) -> None:
+        """Validate program-level invariants for V1."""
+        flexible_modules = [
+            module for module in program.module_sequence if module.module_type == "flexible_release"
+        ]
+        if len(flexible_modules) > 1:
+            raise ValueError("V1 supports at most one flexible_release module per program")
+
+        if flexible_modules and program.switch_conditions:
+            raise ValueError("V1 does not allow mixing flexible_release with switch_conditions")
 
     def get_program(self, program_id: str) -> DispatchProgram | None:
         """获取调度方案."""

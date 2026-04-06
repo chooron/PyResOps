@@ -1,6 +1,6 @@
 """FastMCP server for res-ops-mcp."""
 
-from datetime import datetime
+from pathlib import Path
 
 from fastmcp import FastMCP
 
@@ -12,14 +12,18 @@ from .domain.reservoir import (
 from .services import (
     EvaluationService,
     ExplanationService,
+    OptimizationService,
     ProgramService,
+    RollingOpsService,
     SimulationService,
     SnapshotService,
 )
+from .storage import Repository
 from .tools import (
     setup_evaluation_tools,
     setup_explanation_tools,
     setup_program_tools,
+    setup_rolling_ops_tools,
     setup_simulation_tools,
     setup_snapshot_tools,
 )
@@ -59,6 +63,18 @@ program_service = ProgramService()
 simulation_service = SimulationService(reservoir_spec, program_service.get_module_registry())
 evaluation_service = EvaluationService(reservoir_spec)
 explanation_service = ExplanationService()
+optimization_service = OptimizationService(reservoir_spec, program_service)
+data_dir = Path("data")
+data_dir.mkdir(parents=True, exist_ok=True)
+repository = Repository(str(data_dir / "res_ops.db"))
+rolling_ops_service = RollingOpsService(
+    program_service=program_service,
+    simulation_service=simulation_service,
+    evaluation_service=evaluation_service,
+    optimization_service=optimization_service,
+    snapshot_service=snapshot_service,
+    repository=repository,
+)
 
 # 创建初始快照 (示例)
 snapshot_service.create_initial_snapshot(
@@ -73,6 +89,7 @@ setup_evaluation_tools(mcp, evaluation_service, simulation_service)
 setup_explanation_tools(
     mcp, explanation_service, program_service, simulation_service, evaluation_service
 )
+setup_rolling_ops_tools(mcp, rolling_ops_service)
 
 
 if __name__ == "__main__":

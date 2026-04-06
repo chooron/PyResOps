@@ -10,10 +10,13 @@ from res_ops.services import (
     SimulationService,
     EvaluationService,
     ExplanationService,
+    OptimizationService,
+    RollingOpsService,
 )
 from res_ops.domain.program import TimeHorizon
 from res_ops.domain.reservoir import DischargeCapacity, LevelStorageCurve, ReservoirSpec
 from res_ops.domain.forecast import ForecastBundle, ForecastSeries
+from res_ops.storage import Repository
 
 
 @pytest.fixture
@@ -105,12 +108,14 @@ class TestProgramToolErrors:
         assert "combined_driven" in types
         assert "level_tracking" in types
         assert "external_constraint" in types
+        assert "flexible_release" in types
 
     def test_get_module_registry(self, services):
         svc = services["program"]
         reg = svc.get_module_registry()
         assert "constant_release" in reg
-        assert len(reg) == 6
+        assert "flexible_release" in reg
+        assert len(reg) == 7
 
     def test_create_program(self, services):
         svc = services["program"]
@@ -379,3 +384,73 @@ class TestCompareProgramsEdge:
                 continue
             comparisons.append({"program_id": pid})
         assert len(comparisons) == 0
+
+
+class TestRollingWorkflowIntegration:
+    def test_optimize_reassess_replace_finalize(self, services):
+        ss = services["snapshot"]
+        ps = services["program"]
+        sim = services["simulation"]
+        ev = services["evaluation"]
+        spec = services["spec"]
+
+        ss.create_initial_snapshot("roll_res", spec, 165.0, 8000.0)
+        opt = OptimizationService(spec, ps)
+        repo = Repository(":memory:")
+        rolling = RollingOpsService(
+            program_service=ps,
+            simulation_service=sim,
+            evaluation_service=ev,
+            optimization_service=opt,
+            snapshot_service=ss,
+            repository=repo,
+        )
+
+        start = datetime(2024, 7, 1)
+        forecast = ForecastBundle(
+            forecast_time=start,
+            series=[
+                ForecastSeries(
+                    variable="inflow",
+                    timestamps=[start.replace(hour=h) for h in range(12)],
+                    values=[8000.0 + h * 200 for h in range(12)],
+                )
+            ],
+        )
+
+        first = rolling.optimize_flexible_release_plan(
+            reservoir_id="roll_res",
+            context_id="ctx_roll",
+            horizon_hours=12,
+            control_interval_seconds=3 * 3600,
+            forecast=forecast,
+            constraints={"min_environmental_flow": 2000.0},
+        )
+        reassess = rolling.reassess_plan(
+            reservoir_id="roll_res",
+            context_id="ctx_roll",
+            forecast=forecast,
+            constraints={"min_environmental_flow": 2000.0},
+        )
+        assert reassess["working_plan_id"] == first["candidate_plan_id"]
+
+        second = rolling.optimize_flexible_release_plan(
+            reservoir_id="roll_res",
+            context_id="ctx_roll",
+            horizon_hours=12,
+            control_interval_seconds=3 * 3600,
+            forecast=forecast,
+            constraints={"min_environmental_flow": 2500.0},
+        )
+        replace = rolling.replace_working_plan(
+            reservoir_id="roll_res",
+            context_id="ctx_roll",
+            candidate_plan_id=second["candidate_plan_id"],
+            reason="operator decision",
+        )
+        assert replace["working_plan_id"] == second["candidate_plan_id"]
+
+        finalize = rolling.finalize_plan(reservoir_id="roll_res", context_id="ctx_roll")
+        assert "persisted_ids" in finalize
+        records = repo.list_finalized_records(reservoir_id="roll_res", context_id="ctx_roll")
+        assert len(records) == 1

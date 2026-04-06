@@ -1,5 +1,7 @@
 """Evaluation service for assessing simulation results."""
 
+from typing import Any
+
 from ..domain.constraint import ConstraintSet
 from ..domain.reservoir import ReservoirSpec
 from ..domain.result import EvaluationResult, SimulationResult, StepScore
@@ -18,6 +20,8 @@ class EvaluationService:
         result: SimulationResult,
         constraint_set: ConstraintSet | None = None,
         include_step_scores: bool = False,
+        weights: dict[str, float] | None = None,
+        proxy_options: dict[str, Any] | None = None,
     ) -> EvaluationResult:
         """
         评估仿真结果.
@@ -37,12 +41,38 @@ class EvaluationService:
             validator = ConstraintValidator(constraint_set)
             violations = validator.validate_simulation(result)
 
+        proxy_options = proxy_options or {}
+
         # 计算评分
         flood_control_score = self._evaluate_flood_control(result)
         water_supply_score = self._evaluate_water_supply(result)
+        tailwater_level = float(proxy_options.get("tailwater_level", self.spec.dead_level))
+        env_min_flow = self._resolve_env_min_flow(constraint_set, proxy_options)
+        max_ramp_rate = proxy_options.get("max_ramp_rate")
+        max_ramp_rate = float(max_ramp_rate) if max_ramp_rate is not None else None
+        power_generation_score = self._evaluate_power_generation(result, tailwater_level)
+        ecological_score = self._evaluate_ecology(result, env_min_flow, max_ramp_rate)
 
-        # 综合评分 (简化版本: 加权平均)
-        overall_score = 0.5 * flood_control_score + 0.5 * water_supply_score
+        # 综合评分
+        score_weights = {
+            "flood": 0.45,
+            "supply": 0.25,
+            "power": 0.20,
+            "ecology": 0.10,
+        }
+        if weights:
+            score_weights.update(weights)
+
+        total_weight = sum(score_weights.values())
+        if total_weight <= 0:
+            raise ValueError("evaluation weights must have positive sum")
+
+        overall_score = (
+            score_weights["flood"] * flood_control_score
+            + score_weights["supply"] * water_supply_score
+            + score_weights["power"] * power_generation_score
+            + score_weights["ecology"] * ecological_score
+        ) / total_weight
 
         # 约束违反惩罚
         if violations:
@@ -58,9 +88,19 @@ class EvaluationService:
             simulation_result_id=result.program_id,
             flood_control_score=flood_control_score,
             water_supply_score=water_supply_score,
+            power_generation_score=power_generation_score,
+            ecological_score=ecological_score,
             overall_score=overall_score,
             constraint_violations=violations,
             step_scores=step_scores,
+            metadata={
+                "weights": score_weights,
+                "proxy_options": {
+                    "tailwater_level": tailwater_level,
+                    "env_min_flow": env_min_flow,
+                    "max_ramp_rate": max_ramp_rate,
+                },
+            },
         )
 
     def _compute_step_scores(
@@ -140,3 +180,67 @@ class EvaluationService:
             return 50.0 + 50.0 * (margin / range_width)
         else:
             return 0.0
+
+    def _evaluate_power_generation(self, result: SimulationResult, tailwater_level: float) -> float:
+        """Evaluate power proxy by outflow-head product (0-100)."""
+        if not result.snapshots:
+            return 0.0
+
+        proxy_values = []
+        proxy_ceiling = []
+        for snap in result.snapshots:
+            head = max(snap.level - tailwater_level, 0.0)
+            proxy_values.append(snap.outflow * head)
+            proxy_ceiling.append(self.spec.discharge_capacity.get_max_discharge(snap.level) * head)
+
+        total_proxy = sum(proxy_values)
+        total_ceiling = sum(proxy_ceiling)
+        if total_ceiling <= 0:
+            return 0.0
+
+        return max(0.0, min(100.0, 100.0 * total_proxy / total_ceiling))
+
+    def _evaluate_ecology(
+        self,
+        result: SimulationResult,
+        env_min_flow: float,
+        max_ramp_rate: float | None,
+    ) -> float:
+        """Evaluate ecology proxy with min-flow and optional ramp penalties."""
+        if not result.snapshots:
+            return 100.0
+
+        flow_penalty = 0.0
+        if env_min_flow > 0:
+            deficit_sum = sum(max(env_min_flow - snap.outflow, 0.0) for snap in result.snapshots)
+            max_deficit = env_min_flow * len(result.snapshots)
+            if max_deficit > 0:
+                flow_penalty = min(80.0, 100.0 * deficit_sum / max_deficit)
+
+        ramp_penalty = 0.0
+        if max_ramp_rate is not None and len(result.snapshots) > 1 and max_ramp_rate > 0:
+            exceed_sum = 0.0
+            for prev, curr in zip(result.snapshots[:-1], result.snapshots[1:]):
+                exceed_sum += max(abs(curr.outflow - prev.outflow) - max_ramp_rate, 0.0)
+            baseline = max_ramp_rate * (len(result.snapshots) - 1)
+            if baseline > 0:
+                ramp_penalty = min(40.0, 50.0 * exceed_sum / baseline)
+
+        return max(0.0, min(100.0, 100.0 - flow_penalty - ramp_penalty))
+
+    def _resolve_env_min_flow(
+        self,
+        constraint_set: ConstraintSet | None,
+        proxy_options: dict[str, Any],
+    ) -> float:
+        """Resolve ecological minimum flow from explicit options or constraints."""
+        if proxy_options.get("env_min_flow") is not None:
+            return float(proxy_options["env_min_flow"])
+
+        if not constraint_set:
+            return 0.0
+
+        for constraint in constraint_set.constraints:
+            if constraint.constraint_type == "flow_min":
+                return float(constraint.parameters.get("min_flow", 0.0))
+        return 0.0
