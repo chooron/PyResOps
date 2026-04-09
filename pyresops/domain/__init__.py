@@ -10,6 +10,9 @@ from .forecast import ForecastBundle, ForecastSeries
 from .program import DispatchProgram, ModuleInstance, SwitchCondition, TimeHorizon
 from .module import OperationModule, ModuleInfo
 from .constraint import ConstraintSet, Constraint
+from .rule import RuleSet, DispatchRule, RuleAction
+from .policy import PolicyBundle, ExecutionContext
+from .decision import DecisionOutcome, DecisionTraceStep, ViolationRecord
 from .objective import ObjectiveSet, Objective
 from .result import SimulationResult, EvaluationResult, StateSnapshot
 from .release import SegmentedReleaseSchedule
@@ -29,6 +32,14 @@ __all__ = [
     "ModuleInfo",
     "ConstraintSet",
     "Constraint",
+    "RuleSet",
+    "DispatchRule",
+    "RuleAction",
+    "PolicyBundle",
+    "ExecutionContext",
+    "DecisionOutcome",
+    "DecisionTraceStep",
+    "ViolationRecord",
     "ObjectiveSet",
     "Objective",
     "SimulationResult",

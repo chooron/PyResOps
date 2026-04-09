@@ -16,6 +16,7 @@ class StateSnapshot(BaseModel):
     inflow: float
     outflow: float
     active_module: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class StepScore(BaseModel):
@@ -88,6 +89,7 @@ class EvaluationResult(BaseModel):
 
     # 元数据 (Metadata)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    additional_scores: dict[str, float] = Field(default_factory=dict, description="扩展指标")
 
     def to_dataframe(self) -> pd.DataFrame:
         """将逐步评分转换为 DataFrame."""

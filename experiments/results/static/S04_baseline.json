@@ -1,0 +1,24 @@
+{
+  "scenario_id": "S04",
+  "scenario_name": "Dry Season Power Generation Optimization",
+  "type": "static_baseline",
+  "outflow": 70.0,
+  "scores": {
+    "overall": 80.7531,
+    "flood_control": 100.0,
+    "water_supply": 87.5,
+    "power": 19.3906,
+    "ecological": 100.0
+  },
+  "constraint_violations": 0,
+  "constraint_achievement_rate": 1.0,
+  "tool_call_count": 10,
+  "total_time_seconds": 61.275,
+  "success": true,
+  "sim_details": {
+    "sim_max_level": 150.0,
+    "sim_min_level": 150.0,
+    "sim_final_level": 150.0,
+    "sim_avg_outflow": 70.0
+  }
+}

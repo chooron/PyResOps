@@ -1,0 +1,20 @@
+# 水库调度 MCP 实验依赖
+# 核心框架
+agno>=1.2.0
+
+# LLM 提供商（agno 会自动选择，根据使用的模型安装对应包）
+anthropic>=0.40.0        # Claude 模型
+# openai>=1.0.0          # GPT 模型（可选）
+
+# 数据分析与统计
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+
+# 可视化
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# 其他工具
+python-dotenv>=1.0.0    # 环境变量管理（API Key）
+tqdm>=4.65.0            # 进度条

@@ -1,0 +1,24 @@
+{
+  "scenario_id": "S01",
+  "scenario_name": "Typhoon Season Pre-release Dispatch",
+  "type": "static_baseline",
+  "outflow": 300.0,
+  "scores": {
+    "overall": 78.2413,
+    "flood_control": 94.6638,
+    "water_supply": 96.5846,
+    "power": 7.482,
+    "ecological": 100.0
+  },
+  "constraint_violations": 0,
+  "constraint_achievement_rate": 1.0,
+  "tool_call_count": 10,
+  "total_time_seconds": 62.721,
+  "success": true,
+  "sim_details": {
+    "sim_max_level": 157.5,
+    "sim_min_level": 157.268,
+    "sim_final_level": 157.268,
+    "sim_avg_outflow": 300.0
+  }
+}

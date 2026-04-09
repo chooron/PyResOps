@@ -1,11 +1,14 @@
 """Evaluation service for assessing simulation results."""
 
+from __future__ import annotations
+
 from typing import Any
 
+from ..core.validator import ConstraintValidator
 from ..domain.constraint import ConstraintSet
 from ..domain.reservoir import ReservoirSpec
 from ..domain.result import EvaluationResult, SimulationResult, StepScore
-from ..core.validator import ConstraintValidator
+from ..metrics import MetricRegistry, register_builtin_metrics
 
 
 class EvaluationService:
@@ -14,6 +17,12 @@ class EvaluationService:
     def __init__(self, spec: ReservoirSpec):
         """初始化评估服务."""
         self.spec = spec
+        self.metric_registry = MetricRegistry()
+        register_builtin_metrics(self.metric_registry)
+
+    def register_metric(self, metric_name: str, factory: Any) -> None:
+        """Register custom metric evaluator factory."""
+        self.metric_registry.register(metric_name, factory)
 
     def evaluate(
         self,
@@ -44,14 +53,26 @@ class EvaluationService:
         proxy_options = proxy_options or {}
 
         # 计算评分
-        flood_control_score = self._evaluate_flood_control(result)
-        water_supply_score = self._evaluate_water_supply(result)
-        tailwater_level = float(proxy_options.get("tailwater_level", self.spec.dead_level))
-        env_min_flow = self._resolve_env_min_flow(constraint_set, proxy_options)
-        max_ramp_rate = proxy_options.get("max_ramp_rate")
-        max_ramp_rate = float(max_ramp_rate) if max_ramp_rate is not None else None
-        power_generation_score = self._evaluate_power_generation(result, tailwater_level)
-        ecological_score = self._evaluate_ecology(result, env_min_flow, max_ramp_rate)
+        resolved_proxy_options = dict(proxy_options)
+        resolved_proxy_options.setdefault("tailwater_level", self.spec.dead_level)
+        resolved_proxy_options.setdefault(
+            "env_min_flow",
+            self._resolve_env_min_flow(constraint_set, resolved_proxy_options),
+        )
+
+        metric_values = {}
+        for metric_name, evaluator in self.metric_registry.create_all().items():
+            metric_values[metric_name] = evaluator.evaluate(
+                spec=self.spec,
+                result=result,
+                constraint_set=constraint_set,
+                proxy_options=resolved_proxy_options,
+            )
+
+        flood_control_score = metric_values.get("flood", 0.0)
+        water_supply_score = metric_values.get("supply", 0.0)
+        power_generation_score = metric_values.get("power", 0.0)
+        ecological_score = metric_values.get("ecology", 0.0)
 
         # 综合评分
         score_weights = {
@@ -93,13 +114,19 @@ class EvaluationService:
             overall_score=overall_score,
             constraint_violations=violations,
             step_scores=step_scores,
+            additional_scores={
+                key: value
+                for key, value in metric_values.items()
+                if key not in {"flood", "supply", "power", "ecology"}
+            },
             metadata={
                 "weights": score_weights,
                 "proxy_options": {
-                    "tailwater_level": tailwater_level,
-                    "env_min_flow": env_min_flow,
-                    "max_ramp_rate": max_ramp_rate,
+                    "tailwater_level": float(resolved_proxy_options["tailwater_level"]),
+                    "env_min_flow": float(resolved_proxy_options["env_min_flow"]),
+                    "max_ramp_rate": resolved_proxy_options.get("max_ramp_rate"),
                 },
+                "metric_values": metric_values,
             },
         )
 
@@ -110,7 +137,6 @@ class EvaluationService:
     ) -> list[StepScore]:
         """计算逐步评分."""
         step_scores: list[StepScore] = []
-        total_capacity = self.spec.total_capacity
         dead_level = self.spec.dead_level
         flood_limit = self.spec.flood_limit_level
         normal_level = self.spec.normal_level
@@ -131,7 +157,11 @@ class EvaluationService:
             step_violations = []
             if validator:
                 step_violations = validator.validate_step(
-                    idx, snap.level, snap.inflow, snap.outflow
+                    idx,
+                    snap.level,
+                    snap.inflow,
+                    snap.outflow,
+                    previous_outflow=(result.snapshots[idx - 1].outflow if idx > 0 else None),
                 )
                 if step_violations:
                     constraint_score = max(0.0, 100.0 - 20.0 * len(step_violations))
@@ -158,75 +188,6 @@ class EvaluationService:
             )
 
         return step_scores
-
-    def _evaluate_flood_control(self, result: SimulationResult) -> float:
-        """评估防洪效果."""
-        if result.max_level <= self.spec.flood_limit_level:
-            return 100.0
-        elif result.max_level <= self.spec.design_flood_level:
-            excess = result.max_level - self.spec.flood_limit_level
-            range_width = self.spec.design_flood_level - self.spec.flood_limit_level
-            return max(0.0, 100.0 - 50.0 * (excess / range_width))
-        else:
-            return 0.0
-
-    def _evaluate_water_supply(self, result: SimulationResult) -> float:
-        """评估供水效果."""
-        if result.min_level >= self.spec.normal_level:
-            return 100.0
-        elif result.min_level >= self.spec.dead_level:
-            margin = result.min_level - self.spec.dead_level
-            range_width = self.spec.normal_level - self.spec.dead_level
-            return 50.0 + 50.0 * (margin / range_width)
-        else:
-            return 0.0
-
-    def _evaluate_power_generation(self, result: SimulationResult, tailwater_level: float) -> float:
-        """Evaluate power proxy by outflow-head product (0-100)."""
-        if not result.snapshots:
-            return 0.0
-
-        proxy_values = []
-        proxy_ceiling = []
-        for snap in result.snapshots:
-            head = max(snap.level - tailwater_level, 0.0)
-            proxy_values.append(snap.outflow * head)
-            proxy_ceiling.append(self.spec.discharge_capacity.get_max_discharge(snap.level) * head)
-
-        total_proxy = sum(proxy_values)
-        total_ceiling = sum(proxy_ceiling)
-        if total_ceiling <= 0:
-            return 0.0
-
-        return max(0.0, min(100.0, 100.0 * total_proxy / total_ceiling))
-
-    def _evaluate_ecology(
-        self,
-        result: SimulationResult,
-        env_min_flow: float,
-        max_ramp_rate: float | None,
-    ) -> float:
-        """Evaluate ecology proxy with min-flow and optional ramp penalties."""
-        if not result.snapshots:
-            return 100.0
-
-        flow_penalty = 0.0
-        if env_min_flow > 0:
-            deficit_sum = sum(max(env_min_flow - snap.outflow, 0.0) for snap in result.snapshots)
-            max_deficit = env_min_flow * len(result.snapshots)
-            if max_deficit > 0:
-                flow_penalty = min(80.0, 100.0 * deficit_sum / max_deficit)
-
-        ramp_penalty = 0.0
-        if max_ramp_rate is not None and len(result.snapshots) > 1 and max_ramp_rate > 0:
-            exceed_sum = 0.0
-            for prev, curr in zip(result.snapshots[:-1], result.snapshots[1:]):
-                exceed_sum += max(abs(curr.outflow - prev.outflow) - max_ramp_rate, 0.0)
-            baseline = max_ramp_rate * (len(result.snapshots) - 1)
-            if baseline > 0:
-                ramp_penalty = min(40.0, 50.0 * exceed_sum / baseline)
-
-        return max(0.0, min(100.0, 100.0 - flow_penalty - ramp_penalty))
 
     def _resolve_env_min_flow(
         self,

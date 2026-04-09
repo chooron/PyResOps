@@ -1,13 +1,18 @@
 """Simulation engine for reservoir operation."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import Any
 
 from ..domain.forecast import ForecastBundle
 from ..domain.module import OperationModule
+from ..domain.policy import PolicyBundle
 from ..domain.program import DispatchProgram, SwitchCondition
 from ..domain.reservoir import ReservoirSpec, ReservoirState
 from ..domain.result import SimulationResult, StateSnapshot
 from .hydraulics import HydraulicsCalculator
+from .orchestrator import DecisionOrchestrator
 
 
 class SimulationEngine:
@@ -85,6 +90,8 @@ class SimulationEngine:
         initial_state: ReservoirState,
         forecast: ForecastBundle,
         modules: dict[str, OperationModule],
+        policy_bundle: PolicyBundle | None = None,
+        orchestrator: DecisionOrchestrator | None = None,
     ) -> SimulationResult:
         """
         执行调度方案仿真.
@@ -119,6 +126,9 @@ class SimulationEngine:
         # 时间循环
         current_time = program.time_horizon.start
         end_time = program.time_horizon.end
+        step_index = 0
+        if policy_bundle and orchestrator:
+            orchestrator.reset()
 
         while current_time <= end_time:
             step_time = current_time
@@ -136,16 +146,47 @@ class SimulationEngine:
             # 计算出库流量
             if current_module_type and current_module_type in modules:
                 module = modules[current_module_type]
-                outflow = module.compute_outflow(step_state, self.spec, inflow)
-
-                # 泄流能力约束校核
-                is_valid, adjusted_outflow = self.hydraulics.validate_outflow(
-                    step_state.level, outflow
-                )
-                outflow = adjusted_outflow
+                outflow = float(module.compute_outflow(step_state, self.spec, inflow))
             else:
                 # 默认: 入流等于出流
-                outflow = inflow
+                outflow = float(inflow)
+
+            decision_metadata: dict[str, Any] = {}
+            if policy_bundle and orchestrator:
+                decision = orchestrator.decide(
+                    timestamp=step_time,
+                    step_index=step_index,
+                    state_payload=step_state.model_dump(mode="python"),
+                    inflow=float(inflow),
+                    baseline_outflow=float(outflow),
+                    active_module=current_module_type,
+                    policy_bundle=policy_bundle,
+                    forecast_payload={"inflow": float(inflow)},
+                    history_payload={
+                        "previous_outflow": float(current_state.outflow),
+                    },
+                )
+                outflow = float(decision.outflow)
+                decision_metadata = {
+                    "rule_hits": list(decision.rule_hits),
+                    "actions": [action.model_dump(mode="json") for action in decision.actions],
+                    "adjustments": list(decision.adjustments),
+                    "violations": [violation.to_legacy_dict() for violation in decision.violations],
+                    "fallback_used": decision.fallback_used,
+                }
+
+            # 泄流能力约束校核
+            _, adjusted_outflow = self.hydraulics.validate_outflow(step_state.level, outflow)
+            if adjusted_outflow != outflow:
+                decision_metadata.setdefault("adjustments", []).append(
+                    {
+                        "source": "hydraulics",
+                        "type": "discharge_capacity_clamp",
+                        "before": outflow,
+                        "after": adjusted_outflow,
+                    }
+                )
+            outflow = float(adjusted_outflow)
 
             # 水量平衡推进
             next_state = self.hydraulics.water_balance_step(step_state, inflow, outflow, time_step)
@@ -160,16 +201,39 @@ class SimulationEngine:
                     inflow=inflow,
                     outflow=outflow,
                     active_module=current_module_type,
+                    metadata=decision_metadata,
                 )
             )
 
             # 推进到下一时刻
             current_state = next_state
             current_time += timedelta(seconds=time_step)
+            step_index += 1
 
         # 计算统计量
         levels = [s.level for s in snapshots]
         outflows = [s.outflow for s in snapshots]
+
+        metadata: dict[str, Any] = {}
+        if policy_bundle and orchestrator:
+            metadata["decision_trace"] = [
+                item.model_dump(mode="json") for item in orchestrator.state.trace
+            ]
+            metadata["policy_global_violations"] = [
+                violation.to_legacy_dict()
+                for violation in orchestrator.global_violations(
+                    simulation_result=SimulationResult(
+                        program_id=program.id,
+                        start_time=program.time_horizon.start,
+                        end_time=program.time_horizon.end,
+                        snapshots=snapshots,
+                        max_level=max(levels),
+                        min_level=min(levels),
+                        avg_outflow=sum(outflows) / len(outflows) if outflows else 0.0,
+                    ),
+                    policy_bundle=policy_bundle,
+                )
+            ]
 
         return SimulationResult(
             program_id=program.id,
@@ -179,4 +243,5 @@ class SimulationEngine:
             max_level=max(levels),
             min_level=min(levels),
             avg_outflow=sum(outflows) / len(outflows) if outflows else 0.0,
+            metadata=metadata,
         )

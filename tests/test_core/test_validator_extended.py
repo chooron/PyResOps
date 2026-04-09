@@ -127,6 +127,7 @@ class TestStepValidation:
             name="单步最高水位",
             constraint_type="level_max",
             parameters={"max_level": 170.0},
+            scope="step",
         )
         cs = ConstraintSet(constraints=[constraint])
         validator = ConstraintValidator(cs)
@@ -139,7 +140,11 @@ class TestStepValidation:
         cs = ConstraintSet(
             constraints=[
                 Constraint(
-                    id="smax", name="", constraint_type="level_max", parameters={"max_level": 180.0}
+                    id="smax",
+                    name="",
+                    constraint_type="level_max",
+                    parameters={"max_level": 180.0},
+                    scope="step",
                 ),
             ]
         )

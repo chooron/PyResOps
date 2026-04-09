@@ -1,0 +1,24 @@
+{
+  "scenario_id": "S02",
+  "scenario_name": "Plum Flood Season Peak-shaving Dispatch",
+  "type": "static_baseline",
+  "outflow": 3380.0,
+  "scores": {
+    "overall": 91.671,
+    "flood_control": 100.0,
+    "water_supply": 99.75,
+    "power": 58.6677,
+    "ecological": 100.0
+  },
+  "constraint_violations": 0,
+  "constraint_achievement_rate": 1.0,
+  "tool_call_count": 15,
+  "total_time_seconds": 78.26,
+  "success": true,
+  "sim_details": {
+    "sim_max_level": 159.857,
+    "sim_min_level": 159.8,
+    "sim_final_level": 159.857,
+    "sim_avg_outflow": 3380.0
+  }
+}

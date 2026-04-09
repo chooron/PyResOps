@@ -1,9 +1,11 @@
 """FastMCP server for res-ops-mcp."""
 
+import os
 from pathlib import Path
 
 from fastmcp import FastMCP
 
+from .config import ReservoirYamlError, load_reservoir_bootstrap_from_yaml
 from .domain.reservoir import (
     DischargeCapacity,
     LevelStorageCurve,
@@ -28,8 +30,11 @@ from .tools import (
     setup_snapshot_tools,
 )
 
+from .config import ReservoirBootstrap
+
 # 创建 FastMCP 应用
 mcp = FastMCP("res-ops-mcp")
+DEFAULT_RESERVOIR_CONFIG_PATH = Path("configs/default_reservoir.yaml")
 
 
 # 全局服务实例 (示例配置)
@@ -56,8 +61,36 @@ def create_demo_reservoir_spec() -> ReservoirSpec:
     )
 
 
+def load_reservoir_spec_from_env_or_demo() -> tuple[ReservoirSpec, dict[str, object] | None]:
+    """Load reservoir spec from YAML path in env, fallback to demo spec.
+
+    Environment variable:
+        PYRESOPS_RESERVOIR_CONFIG: absolute or relative path to YAML file.
+    """
+    configured_path = os.getenv("PYRESOPS_RESERVOIR_CONFIG")
+    if configured_path:
+        bootstrap = load_reservoir_bootstrap_from_yaml(configured_path)
+        return bootstrap.spec, {"bootstrap": bootstrap, "config_path": configured_path}
+
+    if DEFAULT_RESERVOIR_CONFIG_PATH.exists():
+        bootstrap = load_reservoir_bootstrap_from_yaml(DEFAULT_RESERVOIR_CONFIG_PATH)
+        return (
+            bootstrap.spec,
+            {
+                "bootstrap": bootstrap,
+                "config_path": str(DEFAULT_RESERVOIR_CONFIG_PATH),
+            },
+        )
+
+    return create_demo_reservoir_spec(), None
+
+
 # 初始化服务
-reservoir_spec = create_demo_reservoir_spec()
+try:
+    reservoir_spec, _bootstrap_context = load_reservoir_spec_from_env_or_demo()
+except ReservoirYamlError as exc:
+    raise RuntimeError(f"Failed to load reservoir configuration: {exc}") from exc
+
 snapshot_service = SnapshotService()
 program_service = ProgramService()
 simulation_service = SimulationService(reservoir_spec, program_service.get_module_registry())
@@ -76,10 +109,20 @@ rolling_ops_service = RollingOpsService(
     repository=repository,
 )
 
-# 创建初始快照 (示例)
-snapshot_service.create_initial_snapshot(
-    reservoir_id="demo_reservoir", spec=reservoir_spec, level=165.0, inflow=8000.0
-)
+# 创建初始快照
+if _bootstrap_context and "bootstrap" in _bootstrap_context:
+    bootstrap = _bootstrap_context["bootstrap"]
+    if not isinstance(bootstrap, ReservoirBootstrap):
+        raise RuntimeError("Invalid bootstrap object type")
+    initial_state = bootstrap.create_initial_state()
+    snapshot_service.update_snapshot(reservoir_spec.id, initial_state)
+else:
+    snapshot_service.create_initial_snapshot(
+        reservoir_id=reservoir_spec.id,
+        spec=reservoir_spec,
+        level=165.0,
+        inflow=8000.0,
+    )
 
 # 注册 MCP 工具
 setup_snapshot_tools(mcp, snapshot_service)

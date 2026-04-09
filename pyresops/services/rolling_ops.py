@@ -8,9 +8,12 @@ from datetime import datetime
 from hashlib import sha256
 from typing import Any
 
+from ..core.orchestrator import DecisionOrchestrator
 from ..domain.constraint import Constraint, ConstraintSet
 from ..domain.forecast import ForecastBundle
+from ..domain.policy import PolicyBundle
 from ..domain.program import DispatchProgram
+from ..domain.rule import DispatchRule, RuleAction, RuleSet
 from ..domain.result import EvaluationResult, SimulationResult
 from ..storage.repository import Repository
 from .evaluation import EvaluationService
@@ -29,6 +32,7 @@ class CandidatePlanRecord:
     evaluation: EvaluationResult
     created_at: datetime
     conditions_hash: str
+    decision_trace: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -87,6 +91,8 @@ class RollingOpsService:
         constraints: dict[str, Any] | None = None,
         objectives: dict[str, Any] | None = None,
         directives: dict[str, Any] | None = None,
+        rules: list[dict[str, Any]] | None = None,
+        policy_bundle: PolicyBundle | None = None,
         optimizer_backend: str | None = None,
     ) -> dict[str, Any]:
         """Generate candidate plan and evidence; auto-adopt if no working plan exists."""
@@ -97,6 +103,12 @@ class RollingOpsService:
         constraints = constraints or {}
         objectives = objectives or {}
         directives = directives or {}
+        resolved_policy = policy_bundle or self._legacy_to_policy_bundle(
+            constraints=constraints,
+            objectives=objectives,
+            directives=directives,
+            custom_rules=rules,
+        )
 
         program, schedule = self.optimization_service.optimize_flexible_release_plan(
             initial_state=initial_state,
@@ -113,16 +125,25 @@ class RollingOpsService:
             },
         )
 
-        simulation = self.simulation_service.run_simulation(program, initial_state, forecast)
+        orchestrator = DecisionOrchestrator()
+        simulation = self.simulation_service.run_simulation(
+            program,
+            initial_state,
+            forecast,
+            policy_bundle=resolved_policy,
+            orchestrator=orchestrator,
+        )
         evaluation = self.evaluation_service.evaluate(
             simulation,
-            constraint_set=self._build_constraint_set(constraints),
+            constraint_set=resolved_policy.constraints,
             proxy_options={
                 "env_min_flow": float(constraints.get("min_environmental_flow", 0.0)),
                 "max_ramp_rate": constraints.get("max_ramp_rate"),
                 "tailwater_level": directives.get("tailwater_level", initial_state.level - 10.0),
             },
         )
+
+        trace = simulation.metadata.get("decision_trace", [])
 
         conditions_hash = self._compute_conditions_hash(
             forecast, constraints, objectives, directives
@@ -135,7 +156,15 @@ class RollingOpsService:
             evaluation=evaluation,
             created_at=datetime.now(),
             conditions_hash=conditions_hash,
+            decision_trace=trace,
         )
+
+        if trace:
+            self.repository.save_decision_trace(
+                trace_id=f"trace_{program.id}",
+                program_id=program.id,
+                trace_data={"program_id": program.id, "steps": trace},
+            )
 
         auto_adopted = False
         if context.working_plan_id is None:
@@ -153,6 +182,7 @@ class RollingOpsService:
                 "release_values": schedule.release_values,
                 "overall_score": evaluation.overall_score,
                 "violations_count": len(evaluation.constraint_violations),
+                "decision_trace_steps": len(trace),
                 "auto_adopted_as_working": auto_adopted,
             },
         }
@@ -165,6 +195,8 @@ class RollingOpsService:
         forecast: ForecastBundle,
         constraints: dict[str, Any] | None = None,
         directives: dict[str, Any] | None = None,
+        rules: list[dict[str, Any]] | None = None,
+        policy_bundle: PolicyBundle | None = None,
     ) -> dict[str, Any]:
         """Reassess current working plan under updated conditions; read-only."""
         context = self._get_context(reservoir_id, context_id)
@@ -185,13 +217,23 @@ class RollingOpsService:
 
         constraints = constraints or {}
         directives = directives or {}
+        resolved_policy = policy_bundle or self._legacy_to_policy_bundle(
+            constraints=constraints,
+            objectives={},
+            directives=directives,
+            custom_rules=rules,
+        )
 
         reassessed_sim = self.simulation_service.run_simulation(
-            working_program, initial_state, forecast
+            working_program,
+            initial_state,
+            forecast,
+            policy_bundle=resolved_policy,
+            orchestrator=DecisionOrchestrator(),
         )
         reassessed_eval = self.evaluation_service.evaluate(
             reassessed_sim,
-            constraint_set=self._build_constraint_set(constraints),
+            constraint_set=resolved_policy.constraints,
             proxy_options={
                 "env_min_flow": float(constraints.get("min_environmental_flow", 0.0)),
                 "max_ramp_rate": constraints.get("max_ramp_rate"),
@@ -221,6 +263,7 @@ class RollingOpsService:
                 "max_level": reassessed_sim.max_level,
                 "min_level": reassessed_sim.min_level,
                 "avg_outflow": reassessed_sim.avg_outflow,
+                "decision_trace_steps": len(reassessed_sim.metadata.get("decision_trace", [])),
                 "rationale": rationale,
             },
         }
@@ -292,7 +335,20 @@ class RollingOpsService:
         sim_data = candidate.simulation.model_dump(mode="json")
         sim_data["program_id"] = finalized_program_id
         sim_data["snapshot_count"] = len(candidate.simulation.snapshots)
+        if candidate.decision_trace:
+            sim_data.setdefault("metadata", {})
+            sim_data["metadata"]["decision_trace"] = candidate.decision_trace
         self.repository.save_simulation_result(finalized_program_id, sim_data)
+
+        if candidate.decision_trace:
+            self.repository.save_decision_trace(
+                trace_id=f"trace_{finalized_program_id}",
+                program_id=finalized_program_id,
+                trace_data={
+                    "program_id": finalized_program_id,
+                    "steps": candidate.decision_trace,
+                },
+            )
 
         eval_data = candidate.evaluation.model_dump(mode="json")
         eval_data["program_id"] = finalized_program_id
@@ -433,6 +489,103 @@ class RollingOpsService:
             )
 
         return ConstraintSet(constraints=items) if items else None
+
+    def _legacy_to_policy_bundle(
+        self,
+        *,
+        constraints: dict[str, Any],
+        objectives: dict[str, Any],
+        directives: dict[str, Any],
+        custom_rules: list[dict[str, Any]] | None = None,
+    ) -> PolicyBundle:
+        """Build generic policy bundle from legacy rolling-ops payload."""
+        constraint_set = self._build_constraint_set(constraints) or ConstraintSet(constraints=[])
+
+        resolved_rules: list[DispatchRule] = []
+        target_outflow = directives.get("target_outflow")
+        if target_outflow is not None:
+            resolved_rules.append(
+                DispatchRule(
+                    id="legacy_target_outflow",
+                    name="Legacy target outflow",
+                    condition={"op": "all", "items": []},
+                    actions=[
+                        RuleAction(
+                            action_type="set_target_outflow",
+                            parameters={"value": float(target_outflow)},
+                        )
+                    ],
+                    priority=1000,
+                    enabled=True,
+                    stop_on_match=False,
+                )
+            )
+
+        max_outflow = constraints.get("max_outflow")
+        if max_outflow is not None:
+            resolved_rules.append(
+                DispatchRule(
+                    id="legacy_max_outflow_clamp",
+                    name="Legacy max outflow clamp",
+                    condition={"op": "all", "items": []},
+                    actions=[
+                        RuleAction(
+                            action_type="clamp_outflow",
+                            parameters={"max": float(max_outflow)},
+                        )
+                    ],
+                    priority=900,
+                    enabled=True,
+                )
+            )
+
+        min_supply = constraints.get("min_water_supply_flow")
+        min_eco = constraints.get("min_environmental_flow")
+        min_outflow = None
+        if min_supply is not None or min_eco is not None:
+            min_outflow = max(float(min_supply or 0.0), float(min_eco or 0.0))
+
+        if min_outflow is not None:
+            resolved_rules.append(
+                DispatchRule(
+                    id="legacy_min_outflow_clamp",
+                    name="Legacy min outflow clamp",
+                    condition={"op": "all", "items": []},
+                    actions=[
+                        RuleAction(
+                            action_type="clamp_outflow",
+                            parameters={"min": float(min_outflow)},
+                        )
+                    ],
+                    priority=900,
+                    enabled=True,
+                )
+            )
+
+        for idx, raw_rule in enumerate(custom_rules or []):
+            action_payloads = [
+                RuleAction(**action_payload) for action_payload in raw_rule.get("actions", [])
+            ]
+            resolved_rules.append(
+                DispatchRule(
+                    id=str(raw_rule.get("id", f"legacy_rule_{idx}")),
+                    name=str(raw_rule.get("name", f"Legacy rule {idx}")),
+                    condition=raw_rule.get("condition", {}),
+                    actions=action_payloads,
+                    priority=int(raw_rule.get("priority", 100)),
+                    enabled=bool(raw_rule.get("enabled", True)),
+                    stop_on_match=bool(raw_rule.get("stop_on_match", False)),
+                    metadata=raw_rule.get("metadata", {}),
+                )
+            )
+
+        return PolicyBundle(
+            constraints=constraint_set,
+            rules=RuleSet(rules=resolved_rules),
+            objectives=objectives,
+            directives=directives,
+            metadata={"source": "legacy_payload"},
+        )
 
     def _compute_conditions_hash(
         self,

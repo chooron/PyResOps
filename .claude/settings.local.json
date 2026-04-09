@@ -10,7 +10,11 @@
       "Bash(pip install:*)",
       "Bash(.venv/Scripts/pip install:*)",
       "Bash(uv pip:*)",
-      "Bash(.venv/Scripts/python.exe -c \"import pyresops; print\\(pyresops.__file__\\)\")"
+      "Bash(.venv/Scripts/python.exe -c \"import pyresops; print\\(pyresops.__file__\\)\")",
+      "mcp__plugin_oh-my-claudecode_t__state_clear",
+      "mcp__plugin_oh-my-claudecode_t__state_list_active",
+      "Bash(uv run:*)",
+      "Bash(python:*)"
     ]
   }
 }

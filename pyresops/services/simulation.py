@@ -1,7 +1,9 @@
 """Simulation service for running dispatch programs."""
 
 from ..core.engine import SimulationEngine
+from ..core.orchestrator import DecisionOrchestrator
 from ..domain.forecast import ForecastBundle
+from ..domain.policy import PolicyBundle
 from ..domain.program import DispatchProgram
 from ..domain.release import SegmentedReleaseSchedule
 from ..domain.reservoir import ReservoirSpec, ReservoirState
@@ -23,6 +25,8 @@ class SimulationService:
         program: DispatchProgram,
         initial_state: ReservoirState,
         forecast: ForecastBundle,
+        policy_bundle: PolicyBundle | None = None,
+        orchestrator: DecisionOrchestrator | None = None,
     ) -> SimulationResult:
         """
         运行仿真.
@@ -36,6 +40,9 @@ class SimulationService:
             仿真结果
         """
         self._validate_program(program)
+
+        if policy_bundle is not None and orchestrator is None:
+            orchestrator = DecisionOrchestrator()
 
         # 实例化操作模块
         modules: dict[str, object] = {}
@@ -62,7 +69,14 @@ class SimulationService:
             modules[module_type] = module
 
         # 执行仿真
-        result = self.engine.simulate(program, initial_state, forecast, modules)
+        result = self.engine.simulate(
+            program,
+            initial_state,
+            forecast,
+            modules,
+            policy_bundle=policy_bundle,
+            orchestrator=orchestrator,
+        )
 
         # 保存结果
         self._results[result.program_id] = result

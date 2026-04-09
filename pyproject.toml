@@ -1,5 +1,5 @@
 [project]
-name = "res-ops-mcp"
+name = "pyresops"
 version = "0.1.0"
 description = "Modular reservoir operation scheduling system with FastMCP integration"
 readme = "README.md"
@@ -9,9 +9,15 @@ dependencies = [
     "pydantic>=2.0.0",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
+    "pyyaml>=6.0.2",
     "scipy>=1.10.0",
     "xarray>=2026.2.0",
     "netcdf4>=1.7.4",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.6",
+    "agno>=2.5.14",
+    "matplotlib>=3.10.8",
+    "openai>=2.31.0",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,161 @@
+{
+  "scenario_id": "S04",
+  "scenario_name": "枯水期发电优化",
+  "baseline_score": 34.4375,
+  "baseline_constraint_rate": 0.6667,
+  "rounds": {
+    "round_1": {
+      "scenario_id": "S04",
+      "round": 1,
+      "trigger_count": 1,
+      "baseline_score": 34.4375,
+      "final_score": 30.2353,
+      "score_improvement": -4.2022,
+      "baseline_constraint_rate": 0.6667,
+      "final_constraint_rate": 0.3333,
+      "constraint_rate_improvement": -0.3334,
+      "total_tool_calls": 0,
+      "adjustments": [
+        {
+          "trigger_index": 1,
+          "trigger_type": "inflow_surge",
+          "outflow_before": 0,
+          "outflow_after": 0,
+          "outflow_delta": 0,
+          "score_before": 34.4375,
+          "score_after": 30.2353,
+          "score_delta": -4.2022,
+          "constraint_rate_before": 0.6667,
+          "constraint_rate_after": 0.3333,
+          "trend": "degraded"
+        }
+      ],
+      "final_outflow": 0,
+      "final_violations": 2
+    },
+    "round_2": {
+      "scenario_id": "S04",
+      "round": 2,
+      "trigger_count": 2,
+      "baseline_score": 34.4375,
+      "final_score": 30.2353,
+      "score_improvement": -4.2022,
+      "baseline_constraint_rate": 0.6667,
+      "final_constraint_rate": 0.3333,
+      "constraint_rate_improvement": -0.3334,
+      "total_tool_calls": 0,
+      "adjustments": [
+        {
+          "trigger_index": 1,
+          "trigger_type": "inflow_surge",
+          "outflow_before": 0,
+          "outflow_after": 0,
+          "outflow_delta": 0,
+          "score_before": 34.4375,
+          "score_after": 30.2353,
+          "score_delta": -4.2022,
+          "constraint_rate_before": 0.6667,
+          "constraint_rate_after": 0.3333,
+          "trend": "degraded"
+        },
+        {
+          "trigger_index": 2,
+          "trigger_type": "grid_dispatch_change",
+          "outflow_before": 0,
+          "outflow_after": 0,
+          "outflow_delta": 0,
+          "score_before": 30.2353,
+          "score_after": 30.2353,
+          "score_delta": 0.0,
+          "constraint_rate_before": 0.3333,
+          "constraint_rate_after": 0.3333,
+          "trend": "maintained"
+        }
+      ],
+      "final_outflow": 0,
+      "final_violations": 2
+    },
+    "round_3": {
+      "scenario_id": "S04",
+      "round": 3,
+      "trigger_count": 3,
+      "baseline_score": 34.4375,
+      "final_score": 30.2353,
+      "score_improvement": -4.2022,
+      "baseline_constraint_rate": 0.6667,
+      "final_constraint_rate": 0.3333,
+      "constraint_rate_improvement": -0.3334,
+      "total_tool_calls": 0,
+      "adjustments": [
+        {
+          "trigger_index": 1,
+          "trigger_type": "inflow_surge",
+          "outflow_before": 0,
+          "outflow_after": 0,
+          "outflow_delta": 0,
+          "score_before": 34.4375,
+          "score_after": 30.2353,
+          "score_delta": -4.2022,
+          "constraint_rate_before": 0.6667,
+          "constraint_rate_after": 0.3333,
+          "trend": "degraded"
+        },
+        {
+          "trigger_index": 2,
+          "trigger_type": "grid_dispatch_change",
+          "outflow_before": 0,
+          "outflow_after": 0,
+          "outflow_delta": 0,
+          "score_before": 30.2353,
+          "score_after": 30.2353,
+          "score_delta": 0.0,
+          "constraint_rate_before": 0.3333,
+          "constraint_rate_after": 0.3333,
+          "trend": "maintained"
+        },
+        {
+          "trigger_index": 3,
+          "trigger_type": "level_warning",
+          "outflow_before": 0,
+          "outflow_after": 0,
+          "outflow_delta": 0,
+          "score_before": 30.2353,
+          "score_after": 30.2353,
+          "score_delta": 0.0,
+          "constraint_rate_before": 0.3333,
+          "constraint_rate_after": 0.3333,
+          "trend": "maintained"
+        }
+      ],
+      "final_outflow": 0,
+      "final_violations": 2
+    }
+  },
+  "comparison_table": [
+    {
+      "round": 1,
+      "trigger_count": 1,
+      "final_score": 30.2353,
+      "score_improvement": -4.2022,
+      "final_constraint_rate": 0.3333,
+      "total_tool_calls": 0
+    },
+    {
+      "round": 2,
+      "trigger_count": 2,
+      "final_score": 30.2353,
+      "score_improvement": -4.2022,
+      "final_constraint_rate": 0.3333,
+      "total_tool_calls": 0
+    },
+    {
+      "round": 3,
+      "trigger_count": 3,
+      "final_score": 30.2353,
+      "score_improvement": -4.2022,
+      "final_constraint_rate": 0.3333,
+      "total_tool_calls": 0
+    }
+  ],
+  "best_round": 1
+}

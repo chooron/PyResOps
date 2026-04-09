@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from ..domain.constraint import Constraint, ConstraintSet
 from ..domain.forecast import ForecastBundle, ForecastSeries
+from ..domain.policy import PolicyBundle
+from ..domain.rule import DispatchRule, RuleAction, RuleSet
 from ..services.rolling_ops import RollingOpsService
 
 
@@ -30,6 +33,27 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
             ],
         )
 
+    def _build_policy_bundle(policy_data: dict[str, Any] | None) -> PolicyBundle | None:
+        if not policy_data:
+            return None
+
+        constraints = [Constraint(**item) for item in policy_data.get("constraints", [])]
+
+        rules: list[DispatchRule] = []
+        for item in policy_data.get("rules", []):
+            actions = [RuleAction(**action) for action in item.get("actions", [])]
+            rule_payload = dict(item)
+            rule_payload["actions"] = actions
+            rules.append(DispatchRule(**rule_payload))
+
+        return PolicyBundle(
+            constraints=ConstraintSet(constraints=constraints),
+            rules=RuleSet(rules=rules),
+            objectives=policy_data.get("objectives", {}),
+            directives=policy_data.get("directives", {}),
+            metadata=policy_data.get("metadata", {}),
+        )
+
     @mcp_server.tool()
     def optimize_flexible_release_plan(
         reservoir_id: str,
@@ -40,6 +64,8 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
         constraints: dict[str, Any] | None = None,
         objectives: dict[str, Any] | None = None,
         directives: dict[str, Any] | None = None,
+        rules: list[dict[str, Any]] | None = None,
+        policy_bundle: dict[str, Any] | None = None,
         optimizer_backend: str | None = None,
     ) -> dict[str, Any]:
         """Generate candidate flexible-release plan and supporting evidence."""
@@ -54,6 +80,8 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
                 constraints=constraints,
                 objectives=objectives,
                 directives=directives,
+                rules=rules,
+                policy_bundle=_build_policy_bundle(policy_bundle),
                 optimizer_backend=optimizer_backend,
             )
             return result
@@ -65,6 +93,8 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
         reservoir_id: str,
         context_id: str,
         updated_external_conditions: dict[str, Any],
+        rules: list[dict[str, Any]] | None = None,
+        policy_bundle: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Reassess working plan under updated external conditions (read-only)."""
         try:
@@ -77,6 +107,8 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
                 forecast=forecast,
                 constraints=constraints,
                 directives=directives,
+                rules=rules,
+                policy_bundle=_build_policy_bundle(policy_bundle),
             )
         except Exception as exc:
             return {"error": str(exc)}

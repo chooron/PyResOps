@@ -1,0 +1,44 @@
+site_name: PyResOps
+site_description: Reservoir operation core documentation
+repo_url: https://github.com/chooron/res-ops-mcp
+repo_name: chooron/res-ops-mcp
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+
+docs_dir: .
+
+nav:
+  - README: README.md
+  - Architecture: ARCHITECTURE.md
+  - Getting Started: GETTING-STARTED.md
+  - Development: DEVELOPMENT.md
+  - Testing: TESTING.md
+  - Configuration: CONFIGURATION.md
+  - Learning Notebooks:
+      - 01 Layers Basics: notebook_01_layers_basics.ipynb
+      - 02 Domain Modules Core: notebook_02_domain_modules_core.ipynb
+      - 03 Constraints Rules Metrics: notebook_03_constraints_rules_metrics.ipynb
+      - 04 End to End MCP and Rolling Ops: notebook_04_end_to_end_mcp_and_rolling_ops.ipynb
+
+docs_dir: docs

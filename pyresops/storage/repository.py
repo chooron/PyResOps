@@ -3,7 +3,6 @@
 import json
 import sqlite3
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 
@@ -93,6 +92,15 @@ class Repository:
                 data TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 UNIQUE (reservoir_id, context_id, version)
+            )
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS decision_traces (
+                trace_id TEXT PRIMARY KEY,
+                program_id TEXT NOT NULL,
+                data TEXT NOT NULL,
+                created_at TEXT NOT NULL
             )
         """)
 
@@ -324,6 +332,56 @@ class Repository:
         for row in rows:
             row["data"] = json.loads(row["data"])
 
+        return rows
+
+    # ── Decision Traces ────────────────────────────────────────
+
+    def save_decision_trace(
+        self, *, trace_id: str, program_id: str, trace_data: dict[str, Any]
+    ) -> None:
+        """Save decision trace payload."""
+        cur = self._conn.cursor()
+        cur.execute(
+            """INSERT OR REPLACE INTO decision_traces
+               (trace_id, program_id, data, created_at)
+               VALUES (?, ?, ?, ?)""",
+            (
+                trace_id,
+                program_id,
+                json.dumps(trace_data, default=str),
+                datetime.now().isoformat(),
+            ),
+        )
+        self._conn.commit()
+
+    def load_decision_trace(self, trace_id: str) -> dict[str, Any] | None:
+        """Load decision trace by trace id."""
+        cur = self._conn.cursor()
+        cur.execute("SELECT data FROM decision_traces WHERE trace_id = ?", (trace_id,))
+        row = cur.fetchone()
+        if row:
+            return json.loads(row["data"])
+        return None
+
+    def list_decision_traces(
+        self,
+        *,
+        program_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List decision traces."""
+        cur = self._conn.cursor()
+        query = "SELECT * FROM decision_traces WHERE 1=1"
+        params: list[Any] = []
+        if program_id:
+            query += " AND program_id = ?"
+            params.append(program_id)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        cur.execute(query, params)
+        rows = [dict(row) for row in cur.fetchall()]
+        for row in rows:
+            row["data"] = json.loads(row["data"])
         return rows
 
     # ── Cleanup ───────────────────────────────────────────────

@@ -1,0 +1,24 @@
+{
+  "scenario_id": "S05",
+  "scenario_name": "Plum-to-Typhoon Transition Drawdown",
+  "type": "static_baseline",
+  "outflow": 500.0,
+  "scores": {
+    "overall": 73.3017,
+    "flood_control": 81.3234,
+    "water_supply": 100.0,
+    "power": 8.531,
+    "ecological": 100.0
+  },
+  "constraint_violations": 0,
+  "constraint_achievement_rate": 1.0,
+  "tool_call_count": 13,
+  "total_time_seconds": 80.315,
+  "success": true,
+  "sim_details": {
+    "sim_max_level": 160.0,
+    "sim_min_level": 160.0,
+    "sim_final_level": 160.0,
+    "sim_avg_outflow": 500.0
+  }
+}

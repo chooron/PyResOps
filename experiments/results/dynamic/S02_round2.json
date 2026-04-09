@@ -1,0 +1,42 @@
+{
+  "scenario_id": "S02",
+  "round": 2,
+  "trigger_count": 2,
+  "baseline_score": 91.671,
+  "final_score": 91.671,
+  "score_improvement": 0.0,
+  "baseline_constraint_rate": 1.0,
+  "final_constraint_rate": 1.0,
+  "constraint_rate_improvement": 0.0,
+  "total_tool_calls": 46,
+  "adjustments": [
+    {
+      "trigger_index": 1,
+      "trigger_type": "instruction_change",
+      "outflow_before": 3380.0,
+      "outflow_after": 3380.0,
+      "outflow_delta": 0.0,
+      "score_before": 91.671,
+      "score_after": 91.671,
+      "score_delta": 0.0,
+      "constraint_rate_before": 1.0,
+      "constraint_rate_after": 1.0,
+      "trend": "maintained"
+    },
+    {
+      "trigger_index": 2,
+      "trigger_type": "window_shrink",
+      "outflow_before": 3380.0,
+      "outflow_after": 3380.0,
+      "outflow_delta": 0.0,
+      "score_before": 91.671,
+      "score_after": 91.671,
+      "score_delta": 0.0,
+      "constraint_rate_before": 1.0,
+      "constraint_rate_after": 1.0,
+      "trend": "maintained"
+    }
+  ],
+  "final_outflow": 3380.0,
+  "final_violations": 0
+}

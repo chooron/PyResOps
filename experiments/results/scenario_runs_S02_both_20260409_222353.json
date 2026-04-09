@@ -1,0 +1,80 @@
+[
+  {
+    "scenario_id": "S02",
+    "mode": "both",
+    "model_profile": "deepseek",
+    "run_time": "2026-04-09T22:19:33.645403",
+    "static": {
+      "scenario_id": "S02",
+      "scenario_name": "Plum Flood Season Peak-shaving Dispatch",
+      "type": "static_baseline",
+      "outflow": 3380.0,
+      "scores": {
+        "overall": 91.671,
+        "flood_control": 100.0,
+        "water_supply": 99.75,
+        "power": 58.6677,
+        "ecological": 100.0
+      },
+      "constraint_violations": 0,
+      "constraint_achievement_rate": 1.0,
+      "tool_call_count": 15,
+      "total_time_seconds": 78.26,
+      "success": true,
+      "sim_details": {
+        "sim_max_level": 159.857,
+        "sim_min_level": 159.8,
+        "sim_final_level": 159.857,
+        "sim_avg_outflow": 3380.0
+      }
+    },
+    "dynamic": {
+      "scenario_id": "S02",
+      "scenario_name": "Plum Flood Season Peak-shaving Dispatch",
+      "baseline_score": 91.671,
+      "baseline_constraint_rate": 1.0,
+      "rounds": {
+        "round_1": {
+          "scenario_id": "S02",
+          "round": 1,
+          "trigger_count": 1,
+          "baseline_score": 91.671,
+          "final_score": 91.671,
+          "score_improvement": 0.0,
+          "baseline_constraint_rate": 1.0,
+          "final_constraint_rate": 1.0,
+          "constraint_rate_improvement": 0.0,
+          "total_tool_calls": 27,
+          "adjustments": [
+            {
+              "trigger_index": 1,
+              "trigger_type": "instruction_change",
+              "outflow_before": 3380.0,
+              "outflow_after": 3380.0,
+              "outflow_delta": 0.0,
+              "score_before": 91.671,
+              "score_after": 91.671,
+              "score_delta": 0.0,
+              "constraint_rate_before": 1.0,
+              "constraint_rate_after": 1.0,
+              "trend": "maintained"
+            }
+          ],
+          "final_outflow": 3380.0,
+          "final_violations": 0
+        }
+      },
+      "comparison_table": [
+        {
+          "round": 1,
+          "trigger_count": 1,
+          "final_score": 91.671,
+          "score_improvement": 0.0,
+          "final_constraint_rate": 1.0,
+          "total_tool_calls": 27
+        }
+      ],
+      "best_round": 1
+    }
+  }
+]

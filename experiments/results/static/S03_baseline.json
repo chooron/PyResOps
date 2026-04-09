@@ -1,0 +1,24 @@
+{
+  "scenario_id": "S03",
+  "scenario_name": "Extreme Flood Emergency Dispatch",
+  "type": "static_baseline",
+  "outflow": 8000.0,
+  "scores": {
+    "overall": 36.039,
+    "flood_control": 50.0,
+    "water_supply": 100.0,
+    "power": 72.8897,
+    "ecological": 100.0
+  },
+  "constraint_violations": 1,
+  "constraint_achievement_rate": 0.6667,
+  "tool_call_count": 8,
+  "total_time_seconds": 55.375,
+  "success": true,
+  "sim_details": {
+    "sim_max_level": 165.87,
+    "sim_min_level": 163.0,
+    "sim_final_level": 165.87,
+    "sim_avg_outflow": 8000.0
+  }
+}
