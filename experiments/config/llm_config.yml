@@ -1,0 +1,110 @@
+# ============================================================
+# PyResOps 实验 LLM 模型配置
+# ============================================================
+#
+# 使用方法：
+#   在 run_experiments.py 中指定 model_profile 名称
+#   或直接传入 profile key：AgnoMCPExperiment(model_profile="deepseek")
+#
+# 所有 api_key 仅从环境变量读取（推荐）
+# ============================================================
+
+# 默认使用的模型配置
+default_profile: deepseek
+
+# ============================================================
+# 模型配置列表
+# ============================================================
+models:
+  # ----------------------------------------------------------
+  # Anthropic Claude（直连官方 API）
+  # ----------------------------------------------------------
+  claude:
+    provider: anthropic
+    model_id: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY   # 从环境变量读取
+    # api_key: sk-ant-xxx            # 也可直接填写（不推荐）
+
+  # ----------------------------------------------------------
+  # DeepSeek（国内大模型，OpenAI 兼容接口）
+  # ----------------------------------------------------------
+  deepseek:
+    provider: deepseek
+    model_id: deepseek-chat
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+
+  deepseek_r1:
+    provider: deepseek
+    model_id: deepseek-reasoner
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+
+  # ----------------------------------------------------------
+  # 通义千问 Qwen（阿里云 DashScope，OpenAI 兼容接口）
+  # ----------------------------------------------------------
+  qwen:
+    provider: dashscope
+    model_id: qwen-plus
+    api_key_env: DASHSCOPE_API_KEY
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    # 国际版：https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+
+  qwen_max:
+    provider: dashscope
+    model_id: qwen-max
+    api_key_env: DASHSCOPE_API_KEY
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+  # ----------------------------------------------------------
+  # MiniMax（OpenCode 平台，OpenAI 兼容接口）
+  # ----------------------------------------------------------
+  minimax:
+    provider: openai_like
+    model_id: MiniMax-Text-01
+    api_key_env: MINIMAX_API_KEY
+    base_url: https://api.minimax.chat/v1
+    # OpenCode 平台配置（如使用 opencode.ai 的 key）：
+    # base_url: https://api.opencode.ai/v1
+    # api_key_env: OPENCODE_API_KEY
+
+  minimax_m1:
+    provider: openai_like
+    model_id: MiniMax-M1
+    api_key_env: MINIMAX_API_KEY
+    base_url: https://api.minimax.chat/v1
+
+  # OpenCode + MiniMax 2.5 (OpenAI-compatible endpoint)
+  opencode_minmax_25:
+    provider: opencode
+    model_id: MiniMax-M2.5
+    api_key_env: OPENCODE_API_KEY
+    base_url: https://api.opencode.ai/v1
+
+  # ----------------------------------------------------------
+  # OpenAI GPT（自定义请求地址，可代理）
+  # ----------------------------------------------------------
+  openai:
+    provider: openai_like
+    model_id: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1   # 可替换为自定义代理地址
+    # 使用自定义代理示例：
+    # base_url: https://your-proxy.example.com/v1
+
+  openai_mini:
+    provider: openai_like
+    model_id: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1
+
+# ============================================================
+# 实验配置
+# ============================================================
+experiment:
+  # 每个场景最大重试次数
+  max_retries: 2
+  # 实验结果输出目录
+  output_dir: experiments/results
+  # 是否打印 Agent 工具调用详情
+  show_tool_calls: true

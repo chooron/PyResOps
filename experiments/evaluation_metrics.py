@@ -17,9 +17,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from pyresops.core import SimulationEngine
+from pyresops.core import resolve_scenario_start_time
 from pyresops.domain.constraint import Constraint, ConstraintSet
 from pyresops.domain.forecast import ForecastBundle, ForecastSeries
 from pyresops.domain.program import DispatchProgram, ModuleInstance, TimeHorizon
@@ -35,10 +36,10 @@ from pyresops.services import EvaluationService
 
 def _build_tankan_spec(flood_limit_level: float = 156.5) -> ReservoirSpec:
     """构建滩坑水电站规格."""
-    levels   = [120.0, 130.0, 140.0, 150.0, 156.5, 160.0, 161.5, 165.87, 169.15]
-    storages = [13.94, 18.14, 23.05, 28.72, 32.51, 35.20, 36.17, 39.37,  41.90]
-    d_levels     = [148.0,  150.0,  155.0,   160.0,   161.5,  165.87]
-    d_discharges = [  0.0,  361.0, 2456.0,  5861.0,  6649.0, 11085.0]
+    levels = [120.0, 130.0, 140.0, 150.0, 156.5, 160.0, 161.5, 165.87, 169.15]
+    storages = [13.94, 18.14, 23.05, 28.72, 32.51, 35.20, 36.17, 39.37, 41.90]
+    d_levels = [148.0, 150.0, 155.0, 160.0, 161.5, 165.87]
+    d_discharges = [0.0, 361.0, 2456.0, 5861.0, 6649.0, 11085.0]
     return ReservoirSpec(
         id="tankan_2025",
         name="滩坑水电站",
@@ -66,7 +67,7 @@ def _run_pyresops_eval(
         包含 overall_score、flood_control_score、water_supply_score、
         power_generation_score、ecological_score、constraint_violations 的字典
     """
-    start = datetime(2025, 6, 1, 0, 0, 0)
+    start = resolve_scenario_start_time(scenario)
     step_seconds = scenario["time_step_hours"] * 3600
     n_steps = scenario["duration_hours"] // scenario["time_step_hours"]
     end = start + timedelta(hours=scenario["duration_hours"])
@@ -82,12 +83,14 @@ def _run_pyresops_eval(
     timestamps = [start + timedelta(seconds=i * step_seconds) for i in range(n_steps)]
     forecast = ForecastBundle(
         forecast_time=start,
-        series=[ForecastSeries(
-            variable="inflow",
-            timestamps=timestamps,
-            values=[float(scenario["inflow"])] * n_steps,
-            unit="m³/s",
-        )],
+        series=[
+            ForecastSeries(
+                variable="inflow",
+                timestamps=timestamps,
+                values=[float(scenario["inflow"])] * n_steps,
+                unit="m³/s",
+            )
+        ],
     )
 
     horizon = TimeHorizon(start=start, end=end, time_step=step_seconds)
@@ -109,29 +112,31 @@ def _run_pyresops_eval(
     sim_result = engine.simulate(program, state, forecast, modules_map)
 
     # 构建评估约束集
-    constraint_set = ConstraintSet(constraints=[
-        Constraint(
-            id="level_min",
-            name="死水位下限",
-            constraint_type="level_min",
-            parameters={"min_level": spec.dead_level},
-            priority=10,
-        ),
-        Constraint(
-            id="level_max",
-            name="正常蓄水位上限",
-            constraint_type="level_max",
-            parameters={"max_level": spec.normal_level},
-            priority=10,
-        ),
-        Constraint(
-            id="eco_flow",
-            name="生态最小流量",
-            constraint_type="flow_min",
-            parameters={"min_flow": 50.0},
-            priority=9,
-        ),
-    ])
+    constraint_set = ConstraintSet(
+        constraints=[
+            Constraint(
+                id="level_min",
+                name="死水位下限",
+                constraint_type="level_min",
+                parameters={"min_level": spec.dead_level},
+                priority=10,
+            ),
+            Constraint(
+                id="level_max",
+                name="正常蓄水位上限",
+                constraint_type="level_max",
+                parameters={"max_level": spec.normal_level},
+                priority=10,
+            ),
+            Constraint(
+                id="eco_flow",
+                name="生态最小流量",
+                constraint_type="flow_min",
+                parameters={"min_flow": 50.0},
+                priority=9,
+            ),
+        ]
+    )
 
     ev = EvaluationService(spec)
     eval_result = ev.evaluate(sim_result, constraint_set=constraint_set)
@@ -145,15 +150,167 @@ def _run_pyresops_eval(
         "constraint_violations": len(eval_result.constraint_violations),
         "sim_max_level": round(sim_result.max_level, 3),
         "sim_min_level": round(sim_result.min_level, 3),
-        "sim_final_level": round(sim_result.snapshots[-1].level, 3) if sim_result.snapshots else None,
+        "sim_final_level": round(sim_result.snapshots[-1].level, 3)
+        if sim_result.snapshots
+        else None,
         "sim_avg_outflow": round(sim_result.avg_outflow, 1),
+    }
+
+
+def _clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
+    return max(lower, min(upper, value))
+
+
+def _partial_credit(actual: float, target: float, worst_case: float) -> float:
+    denominator = abs(worst_case - target)
+    if denominator <= 1e-9:
+        return 1.0 if abs(actual - target) <= 1e-9 else 0.0
+    return round(_clamp(1.0 - abs(actual - target) / denominator), 4)
+
+
+def _evaluate_pass_condition(
+    condition: dict,
+    llm_outflow: float,
+    state_before: dict,
+    state_after_sim: dict,
+) -> dict:
+    condition_type = condition["type"]
+
+    if condition_type == "level_target":
+        target = float(condition["target"])
+        tolerance = float(condition.get("tolerance", 0.0))
+        actual = float(state_after_sim["level"])
+        before_level = float(state_before["level"])
+        before_gap = abs(before_level - target)
+        after_gap = abs(actual - target)
+        return {
+            "pass": after_gap <= tolerance,
+            "constraint_violations": 0 if after_gap <= tolerance else 1,
+            "response_direction_correct": after_gap <= before_gap,
+            "partial_credit": _partial_credit(actual, target, before_level),
+            "detail": (
+                f"level_target: actual={actual:.3f}, target={target:.3f}, tolerance={tolerance:.3f}"
+            ),
+        }
+
+    if condition_type == "level_max":
+        max_level = float(condition["max_level"])
+        actual = float(state_after_sim["level"])
+        before_level = float(state_before["level"])
+        return {
+            "pass": actual <= max_level,
+            "constraint_violations": 0 if actual <= max_level else 1,
+            "response_direction_correct": actual <= before_level or actual <= max_level,
+            "partial_credit": 1.0
+            if actual <= max_level
+            else _partial_credit(actual, max_level, before_level),
+            "detail": f"level_max: actual={actual:.3f}, max={max_level:.3f}",
+        }
+
+    if condition_type == "flow_limit":
+        max_flow = float(condition["max_flow"])
+        actual = float(llm_outflow)
+        return {
+            "pass": actual <= max_flow,
+            "constraint_violations": 0 if actual <= max_flow else 1,
+            "response_direction_correct": actual <= max_flow,
+            "partial_credit": 1.0
+            if actual <= max_flow
+            else _partial_credit(actual, max_flow, max_flow * 2.0),
+            "detail": f"flow_limit: actual={actual:.1f}, max={max_flow:.1f}",
+        }
+
+    if condition_type == "direction":
+        expected = condition["expected"]
+        previous_outflow = float(state_before.get("outflow", state_before.get("inflow", 0.0)))
+        current_outflow = float(llm_outflow)
+        epsilon = float(condition.get("epsilon", 1e-6))
+
+        if expected == "increase":
+            passed = current_outflow > previous_outflow + epsilon
+        elif expected == "decrease":
+            passed = current_outflow < previous_outflow - epsilon
+        elif expected == "maintain":
+            passed = abs(current_outflow - previous_outflow) <= epsilon
+        else:
+            raise ValueError(f"未知 direction expected: {expected}")
+
+        return {
+            "pass": passed,
+            "constraint_violations": 0 if passed else 1,
+            "response_direction_correct": passed,
+            "partial_credit": 1.0 if passed else 0.0,
+            "detail": (
+                f"direction: previous={previous_outflow:.1f}, actual={current_outflow:.1f}, "
+                f"expected={expected}"
+            ),
+        }
+
+    if condition_type == "best_effort":
+        primary = _evaluate_pass_condition(
+            condition["primary"],
+            llm_outflow,
+            state_before,
+            state_after_sim,
+        )
+        safety = _evaluate_pass_condition(
+            condition["safety_constraint"],
+            llm_outflow,
+            state_before,
+            state_after_sim,
+        )
+        target = float(
+            condition["primary"].get("max_flow", condition["primary"].get("target", llm_outflow))
+        )
+        tolerance_multiplier = float(condition.get("tolerance_multiplier", 2.0))
+        worst_case = target * tolerance_multiplier
+        partial_credit = _partial_credit(float(llm_outflow), target, worst_case)
+
+        return {
+            "pass": safety["pass"],
+            "constraint_violations": (0 if safety["pass"] else 1) + (0 if primary["pass"] else 1),
+            "response_direction_correct": primary["response_direction_correct"],
+            "partial_credit": partial_credit,
+            "detail": (
+                f"best_effort: safety=({safety['detail']}), primary=({primary['detail']}), "
+                f"partial_credit={partial_credit:.4f}"
+            ),
+        }
+
+    raise ValueError(f"不支持的 pass_condition 类型: {condition_type}")
+
+
+def evaluate_instruction_compliance(
+    trigger: dict,
+    llm_outflow: float,
+    state_before: dict,
+    state_after_sim: dict,
+) -> dict:
+    """
+    评估 LLM 响应是否达到本次指令目标。
+
+    Pass 条件完全由 trigger["pass_condition"] 驱动，无场景硬编码。
+    """
+    result = _evaluate_pass_condition(
+        trigger["pass_condition"],
+        llm_outflow,
+        state_before,
+        state_after_sim,
+    )
+    return {
+        "pass": bool(result["pass"]),
+        "constraint_violations": int(result["constraint_violations"]),
+        "response_direction_correct": bool(result["response_direction_correct"]),
+        "is_hard_task": bool(trigger.get("is_hard_task", False)),
+        "partial_credit": round(float(result["partial_credit"]), 4),
+        "detail": result["detail"],
     }
 
 
 class ExperimentEvaluator:
     """
     对比人工调度与 MCP Agent 调度，使用 pyresops EvaluationService 计算评估指标。
-    供 run_experiments.py 调用。
+    供实验评估辅助流程调用。
     """
 
     def compare(self, human_result: dict, mcp_result: dict, scenario: dict) -> dict:
@@ -162,15 +319,13 @@ class ExperimentEvaluator:
 
         Args:
             human_result: HumanBaselineScheduler.schedule() 的输出
-            mcp_result:   AgnoMCPExperiment.run_scenario() 的输出
+            mcp_result:   运行时调度器 run_scenario() 的输出
             scenario:     场景参数字典
 
         Returns:
             对比评估字典
         """
-        spec = _build_tankan_spec(
-            flood_limit_level=scenario.get("flood_limit_level", 156.5)
-        )
+        spec = _build_tankan_spec(flood_limit_level=scenario.get("flood_limit_level", 156.5))
 
         h_outflow = human_result.get("outflow", scenario["inflow"])
         m_outflow = mcp_result.get("outflow", scenario["inflow"])
@@ -181,25 +336,25 @@ class ExperimentEvaluator:
 
         return {
             # 人工调度指标
-            "human_overall":        h_eval["overall_score"],
-            "human_safety":         h_eval["flood_control_score"],
-            "human_benefit":        h_eval["power_generation_score"],
-            "human_eco_score":      h_eval["ecological_score"],
-            "human_supply_score":   h_eval["water_supply_score"],
-            "human_violations":     h_eval["constraint_violations"],
-            "human_outflow":        h_outflow,
+            "human_overall": h_eval["overall_score"],
+            "human_safety": h_eval["flood_control_score"],
+            "human_benefit": h_eval["power_generation_score"],
+            "human_eco_score": h_eval["ecological_score"],
+            "human_supply_score": h_eval["water_supply_score"],
+            "human_violations": h_eval["constraint_violations"],
+            "human_outflow": h_outflow,
             # MCP 调度指标
-            "mcp_overall":          m_eval["overall_score"],
-            "mcp_safety":           m_eval["flood_control_score"],
-            "mcp_benefit":          m_eval["power_generation_score"],
-            "mcp_eco_score":        m_eval["ecological_score"],
-            "mcp_supply_score":     m_eval["water_supply_score"],
-            "mcp_violations":       m_eval["constraint_violations"],
-            "mcp_outflow":          m_outflow,
+            "mcp_overall": m_eval["overall_score"],
+            "mcp_safety": m_eval["flood_control_score"],
+            "mcp_benefit": m_eval["power_generation_score"],
+            "mcp_eco_score": m_eval["ecological_score"],
+            "mcp_supply_score": m_eval["water_supply_score"],
+            "mcp_violations": m_eval["constraint_violations"],
+            "mcp_outflow": m_outflow,
             # 仿真详情（人工）
             "human_sim": {k: v for k, v in h_eval.items() if k.startswith("sim_")},
             # 仿真详情（MCP）
-            "mcp_sim":   {k: v for k, v in m_eval.items() if k.startswith("sim_")},
+            "mcp_sim": {k: v for k, v in m_eval.items() if k.startswith("sim_")},
         }
 
     def summarize(self, results: list[dict]) -> dict:
@@ -207,7 +362,7 @@ class ExperimentEvaluator:
         汇总所有场景统计，输出论文表格所需格式。
 
         Args:
-            results: run_experiments.py 累积的 results 列表，
+            results: 实验流程累积的 results 列表，
                      每项包含 {"scenario", "human", "mcp", "evaluation"}
 
         Returns:
@@ -225,55 +380,52 @@ class ExperimentEvaluator:
                 return 0.0
             return round((new - base) / base * 100, 2)
 
-        h_overall  = [r["evaluation"]["human_overall"]  for r in results]
-        m_overall  = [r["evaluation"]["mcp_overall"]    for r in results]
-        h_safety   = [r["evaluation"]["human_safety"]   for r in results]
-        m_safety   = [r["evaluation"]["mcp_safety"]     for r in results]
-        h_benefit  = [r["evaluation"]["human_benefit"]  for r in results]
-        m_benefit  = [r["evaluation"]["mcp_benefit"]    for r in results]
-        h_eco      = [r["evaluation"].get("human_eco_score", 0) for r in results]
-        m_eco      = [r["evaluation"].get("mcp_eco_score", 0)   for r in results]
-        h_supply   = [r["evaluation"].get("human_supply_score", 0) for r in results]
-        m_supply   = [r["evaluation"].get("mcp_supply_score", 0)   for r in results]
-        h_viol     = [r["evaluation"].get("human_violations", 0) for r in results]
-        m_viol     = [r["evaluation"].get("mcp_violations", 0)   for r in results]
+        h_overall = [r["evaluation"]["human_overall"] for r in results]
+        m_overall = [r["evaluation"]["mcp_overall"] for r in results]
+        h_safety = [r["evaluation"]["human_safety"] for r in results]
+        m_safety = [r["evaluation"]["mcp_safety"] for r in results]
+        h_benefit = [r["evaluation"]["human_benefit"] for r in results]
+        m_benefit = [r["evaluation"]["mcp_benefit"] for r in results]
+        h_eco = [r["evaluation"].get("human_eco_score", 0) for r in results]
+        m_eco = [r["evaluation"].get("mcp_eco_score", 0) for r in results]
+        h_supply = [r["evaluation"].get("human_supply_score", 0) for r in results]
+        m_supply = [r["evaluation"].get("mcp_supply_score", 0) for r in results]
+        h_viol = [r["evaluation"].get("human_violations", 0) for r in results]
+        m_viol = [r["evaluation"].get("mcp_violations", 0) for r in results]
 
-        h_time     = [r["human"].get("decision_time", 0)  for r in results]
-        m_time     = [r["mcp"].get("decision_time",
-                       r["mcp"].get("total_time_seconds", 0)) for r in results]
-        m_calls    = [r["mcp"].get("tool_call_count",
-                       r["mcp"].get("tool_calls", 0))          for r in results]
+        h_time = [r["human"].get("decision_time", 0) for r in results]
+        m_time = [
+            r["mcp"].get("decision_time", r["mcp"].get("total_time_seconds", 0)) for r in results
+        ]
+        m_calls = [r["mcp"].get("tool_call_count", r["mcp"].get("tool_calls", 0)) for r in results]
 
         return {
             "total_scenarios": n,
-
             # 人工调度平均
-            "human_avg_overall":    avg(h_overall),
-            "human_avg_safety":     avg(h_safety),
-            "human_avg_benefit":    avg(h_benefit),
-            "human_avg_eco":        avg(h_eco),
-            "human_avg_supply":     avg(h_supply),
+            "human_avg_overall": avg(h_overall),
+            "human_avg_safety": avg(h_safety),
+            "human_avg_benefit": avg(h_benefit),
+            "human_avg_eco": avg(h_eco),
+            "human_avg_supply": avg(h_supply),
             "human_avg_violations": avg(h_viol),
-            "human_avg_time":       avg(h_time),
-
+            "human_avg_time": avg(h_time),
             # MCP 调度平均
-            "mcp_avg_overall":      avg(m_overall),
-            "mcp_avg_safety":       avg(m_safety),
-            "mcp_avg_benefit":      avg(m_benefit),
-            "mcp_avg_eco":          avg(m_eco),
-            "mcp_avg_supply":       avg(m_supply),
-            "mcp_avg_violations":   avg(m_viol),
-            "mcp_avg_time":         avg(m_time),
-            "mcp_avg_tool_calls":   avg(m_calls),
-
+            "mcp_avg_overall": avg(m_overall),
+            "mcp_avg_safety": avg(m_safety),
+            "mcp_avg_benefit": avg(m_benefit),
+            "mcp_avg_eco": avg(m_eco),
+            "mcp_avg_supply": avg(m_supply),
+            "mcp_avg_violations": avg(m_viol),
+            "mcp_avg_time": avg(m_time),
+            "mcp_avg_tool_calls": avg(m_calls),
             # 相对改进（正数=MCP更好）
-            "overall_improvement":  pct_improve(avg(h_overall), avg(m_overall)),
-            "safety_improvement":   pct_improve(avg(h_safety),  avg(m_safety)),
-            "benefit_improvement":  pct_improve(avg(h_benefit), avg(m_benefit)),
-            "eco_improvement":      pct_improve(avg(h_eco),     avg(m_eco)),
-            "supply_improvement":   pct_improve(avg(h_supply),  avg(m_supply)),
+            "overall_improvement": pct_improve(avg(h_overall), avg(m_overall)),
+            "safety_improvement": pct_improve(avg(h_safety), avg(m_safety)),
+            "benefit_improvement": pct_improve(avg(h_benefit), avg(m_benefit)),
+            "eco_improvement": pct_improve(avg(h_eco), avg(m_eco)),
+            "supply_improvement": pct_improve(avg(h_supply), avg(m_supply)),
             # 违反约束减少量（负数=MCP违反更少，是好事）
-            "violations_delta":     round(avg(m_viol) - avg(h_viol), 4),
+            "violations_delta": round(avg(m_viol) - avg(h_viol), 4),
         }
 
 
@@ -301,8 +453,7 @@ class DynamicAdjustmentEvaluator:
         after_outflow = after.get("outflow", 0.0)
         outflow_change = round(after_outflow - before_outflow, 1)
         outflow_change_pct = (
-            round(outflow_change / before_outflow * 100, 2)
-            if before_outflow != 0 else 0.0
+            round(outflow_change / before_outflow * 100, 2) if before_outflow != 0 else 0.0
         )
         return {
             "outflow_change": outflow_change,
@@ -323,9 +474,7 @@ class DynamicAdjustmentEvaluator:
         achieved = max(0, self.TOTAL_CONSTRAINTS - violations)
         return round(achieved / self.TOTAL_CONSTRAINTS, 4)
 
-    def assess_adjustment_effectiveness(
-        self, before_rate: float, after_rate: float
-    ) -> str:
+    def assess_adjustment_effectiveness(self, before_rate: float, after_rate: float) -> str:
         """判断调整有效性。
 
         Args:
@@ -345,9 +494,7 @@ class DynamicAdjustmentEvaluator:
         else:
             return "maintained"
 
-    def compare_dynamic_scenario(
-        self, before_result: dict, after_result: dict
-    ) -> dict:
+    def compare_dynamic_scenario(self, before_result: dict, after_result: dict) -> dict:
         """生成动态场景完整对比报告。
 
         Args:

@@ -1,161 +1,62 @@
 {
   "scenario_id": "S03",
-  "scenario_name": "极端洪水应急调度",
-  "baseline_score": 13.5,
-  "baseline_constraint_rate": 0.3333,
-  "rounds": {
-    "round_1": {
-      "scenario_id": "S03",
-      "round": 1,
-      "trigger_count": 1,
-      "baseline_score": 13.5,
-      "final_score": 13.5,
-      "score_improvement": 0.0,
-      "baseline_constraint_rate": 0.3333,
-      "final_constraint_rate": 0.3333,
-      "constraint_rate_improvement": 0.0,
-      "total_tool_calls": 0,
-      "adjustments": [
-        {
-          "trigger_index": 1,
-          "trigger_type": "emergency_flood",
-          "outflow_before": 0,
-          "outflow_after": 0,
-          "outflow_delta": 0,
-          "score_before": 13.5,
-          "score_after": 13.5,
-          "score_delta": 0.0,
-          "constraint_rate_before": 0.3333,
-          "constraint_rate_after": 0.3333,
-          "trend": "maintained"
-        }
-      ],
-      "final_outflow": 0,
-      "final_violations": 2
-    },
-    "round_2": {
-      "scenario_id": "S03",
-      "round": 2,
-      "trigger_count": 2,
-      "baseline_score": 13.5,
-      "final_score": 13.5,
-      "score_improvement": 0.0,
-      "baseline_constraint_rate": 0.3333,
-      "final_constraint_rate": 0.3333,
-      "constraint_rate_improvement": 0.0,
-      "total_tool_calls": 0,
-      "adjustments": [
-        {
-          "trigger_index": 1,
-          "trigger_type": "emergency_flood",
-          "outflow_before": 0,
-          "outflow_after": 0,
-          "outflow_delta": 0,
-          "score_before": 13.5,
-          "score_after": 13.5,
-          "score_delta": 0.0,
-          "constraint_rate_before": 0.3333,
-          "constraint_rate_after": 0.3333,
-          "trend": "maintained"
-        },
-        {
-          "trigger_index": 2,
-          "trigger_type": "dam_monitoring_alert",
-          "outflow_before": 0,
-          "outflow_after": 0,
-          "outflow_delta": 0,
-          "score_before": 13.5,
-          "score_after": 13.5,
-          "score_delta": 0.0,
-          "constraint_rate_before": 0.3333,
-          "constraint_rate_after": 0.3333,
-          "trend": "maintained"
-        }
-      ],
-      "final_outflow": 0,
-      "final_violations": 2
-    },
-    "round_3": {
-      "scenario_id": "S03",
-      "round": 3,
-      "trigger_count": 3,
-      "baseline_score": 13.5,
-      "final_score": 13.5,
-      "score_improvement": 0.0,
-      "baseline_constraint_rate": 0.3333,
-      "final_constraint_rate": 0.3333,
-      "constraint_rate_improvement": 0.0,
-      "total_tool_calls": 0,
-      "adjustments": [
-        {
-          "trigger_index": 1,
-          "trigger_type": "emergency_flood",
-          "outflow_before": 0,
-          "outflow_after": 0,
-          "outflow_delta": 0,
-          "score_before": 13.5,
-          "score_after": 13.5,
-          "score_delta": 0.0,
-          "constraint_rate_before": 0.3333,
-          "constraint_rate_after": 0.3333,
-          "trend": "maintained"
-        },
-        {
-          "trigger_index": 2,
-          "trigger_type": "dam_monitoring_alert",
-          "outflow_before": 0,
-          "outflow_after": 0,
-          "outflow_delta": 0,
-          "score_before": 13.5,
-          "score_after": 13.5,
-          "score_delta": 0.0,
-          "constraint_rate_before": 0.3333,
-          "constraint_rate_after": 0.3333,
-          "trend": "maintained"
-        },
-        {
-          "trigger_index": 3,
-          "trigger_type": "downstream_levee_risk",
-          "outflow_before": 0,
-          "outflow_after": 0,
-          "outflow_delta": 0,
-          "score_before": 13.5,
-          "score_after": 13.5,
-          "score_delta": 0.0,
-          "constraint_rate_before": 0.3333,
-          "constraint_rate_after": 0.3333,
-          "trend": "maintained"
-        }
-      ],
-      "final_outflow": 0,
-      "final_violations": 2
-    }
+  "scenario_name": "Extreme Flood Emergency Dispatch",
+  "overall_pass_rate": 1.0,
+  "stage_pass_count": 1,
+  "stage_total": 1,
+  "hard_task_partial_credits": {},
+  "adjustment_effective": true,
+  "constraint_achievement_rate": {
+    "before": 1.0,
+    "after": 1.0,
+    "trend": "maintained"
   },
-  "comparison_table": [
+  "adjustment_delta": {
+    "outflow_delta": 2477.5
+  },
+  "score_change": 89.312,
+  "stages": [
     {
-      "round": 1,
-      "trigger_count": 1,
-      "final_score": 13.5,
-      "score_improvement": 0.0,
-      "final_constraint_rate": 0.3333,
-      "total_tool_calls": 0
-    },
-    {
-      "round": 2,
-      "trigger_count": 2,
-      "final_score": 13.5,
-      "score_improvement": 0.0,
-      "final_constraint_rate": 0.3333,
-      "total_tool_calls": 0
-    },
-    {
-      "round": 3,
-      "trigger_count": 3,
-      "final_score": 13.5,
-      "score_improvement": 0.0,
-      "final_constraint_rate": 0.3333,
-      "total_tool_calls": 0
+      "stage": "T0",
+      "trigger_hours": 0,
+      "sim_hours_before": 0,
+      "instruction": "极端洪水应急启动：请按分级规则执行应急调度，优先保障大坝安全。",
+      "state_before": {
+        "level": 156.5,
+        "storage": 32.51,
+        "inflow": 1000.0,
+        "outflow": 1000.0
+      },
+      "llm_outflow": 3477.5,
+      "compliance": {
+        "pass": true,
+        "constraint_violations": 0,
+        "response_direction_correct": true,
+        "is_hard_task": false,
+        "partial_credit": 1.0,
+        "detail": "direction: previous=1000.0, actual=3477.5, expected=increase"
+      },
+      "state_after_sim": {
+        "level": 158.895,
+        "storage": 34.3509,
+        "inflow": 12000.0,
+        "outflow": 3477.5
+      },
+      "evaluation": {
+        "overall_score": 89.312,
+        "flood_control_score": 87.2189,
+        "water_supply_score": 95.625,
+        "power_generation_score": 80.7862,
+        "ecological_score": 100.0,
+        "constraint_violations": 0,
+        "sim_max_level": 158.895,
+        "sim_min_level": 156.5,
+        "sim_final_level": 158.895,
+        "sim_avg_outflow": 3477.5
+      },
+      "tool_call_count": 7,
+      "total_time_seconds": 50.506,
+      "final_decision_text": "I'll perform a complete analysis for this extreme flood emergency dispatch scenario. Let me start by querying the current reservoir status.Now let me query the applicable dispatch rules for this extreme flood scenario.Based on the rules, I can see this is an extreme flood emergency scenario. The current water level is 156.5m, but the forecast inflow is 12,000 m³/s, which is extremely high. According to the rules, when water level exceeds the design flood level (165.87m), we need to activate emergency procedures with maximum discharge capacity of 11,085 m³/s.\n\nLet me check safety constraints for a proposed maximum outflow. Given the extreme inflow forecast, I should propose the maximum discharge capacity.The safety check shows that 11,085 m³/s exceeds the current discharge capacity at water level 156.5m, which is only 3,477.5 m³/s. I need to propose a more realistic outflow based on current capacity. Let me try with the maximum allowed discharge at current water level.Good, 3,477.5 m³/s is safe for current conditions. Now let me run a dispatch simulation with this outflow to see how it performs.The simulation shows that with an initial outflow of 3,477.5 m³/s, the water level rises to 158.712m over 6 hours, and outflow increases to 4,983.9 m³/s as the water level rises. However, with forecast inflow of 12,000 m³/s, this outflow may not be sufficient to prevent rapid water level rise. Let me evaluate this dispatch result.The evaluation shows an overall score of 89.312, which is good, but given the extreme flood conditions with 12,000 m³/s inflow, I should consider optimizing the release plan. Let me try optimization to see if we can better handle this extreme flood.The optimization suggests maintaining 3,477.5 m³/s consistently. However, given the extreme flood conditions and the emergency rules that prioritize dam safety, I need to consider that as water level rises, discharge capacity increases. Let me check what would happen if we use a more aggressive approach that increases outflow as water level rises.\n\nBased on my analysis, here's my final dispatch decision:\n\n```json\n{\n  \"outflow\": 3477.5,\n  \"reasoning\": \"Current water level 156.5m allows maximum discharge capacity of 3,477.5 m³/s. With extreme forecast inflow of 12,000 m³/s, immediate maximum discharge is required to mitigate rapid water level rise. As water level increases, discharge capacity will automatically increase (reaching ~4,984 m³/s at 158.7m). Emergency rules prioritize dam safety - downstream warnings must be issued for flows exceeding safe limits.\",\n  \"constraint_check\": \"Safe: Within current discharge capacity (3,477.5 m³/s max at 156.5m). Ecological flow satisfied (>50 m³/s). Flood risk compliance: extreme risk, water level at flood limit (156.5m). Emergency procedures activated per rules when level exceeds 165.87m.\"\n}\n```"
     }
-  ],
-  "best_round": 1
+  ]
 }

@@ -1,0 +1,448 @@
+scenarios:
+  S01:
+    id: S01
+    name: Typhoon Season Pre-release Dispatch
+    description: During typhoon season, reservoir level exceeds flood limit (156.5m); pre-release is required to create flood-control storage.
+    flood_limit_level: 156.5
+    current_level: 157.5
+    initial_storage: 33.10
+    initial_inflow: 400.0
+    season: typhoon
+    flood_risk: medium
+    inflow: 400.0
+    target_level: 156.5
+    duration_hours: 48
+    time_step_hours: 3
+    key_dimension: flood_control_score
+  S02:
+    id: S02
+    name: Plum Flood Season Peak-shaving Dispatch
+    description: Perform peak-shaving in plum flood season and control Hecheng station flow at <= 14000 m3/s.
+    flood_limit_level: 160.0
+    current_level: 159.8
+    initial_storage: 35.09
+    initial_inflow: 2800.0
+    season: plum_flood
+    flood_risk: high
+    inflow: 3380.0
+    target_level: 160.0
+    duration_hours: 48
+    time_step_hours: 3
+    key_dimension: flood_control_score
+    downstream_limit: 14000.0
+  S03:
+    id: S03
+    name: Extreme Flood Emergency Dispatch
+    description: Handle beyond-design flood conditions when water level exceeds design flood level (165.87m).
+    flood_limit_level: 156.5
+    current_level: 156.5
+    initial_storage: 32.51
+    initial_inflow: 1000.0
+    season: typhoon
+    flood_risk: extreme
+    inflow: 12000.0
+    target_level: 165.87
+    duration_hours: 72
+    time_step_hours: 1
+    key_dimension: flood_control_score
+  S04:
+    id: S04
+    name: Dry Season Power Generation Optimization
+    description: Maximize power generation in dry season while satisfying minimum ecological release.
+    flood_limit_level: 156.5
+    current_level: 150.35
+    initial_storage: 28.72
+    initial_inflow: 140.0
+    season: dry
+    flood_risk: none
+    inflow: 45.0
+    target_level: 147.52
+    duration_hours: 2160
+    time_step_hours: 24
+    key_dimension: power_generation_score
+  S05:
+    id: S05
+    name: Plum-to-Typhoon Transition Drawdown
+    description: During transition from plum flood to typhoon season, reduce level from 160.0m to 156.5m.
+    flood_limit_level: 156.5
+    current_level: 160.0
+    initial_storage: 35.20
+    initial_inflow: 200.0
+    season: transition
+    flood_risk: low
+    inflow: 200.0
+    target_level: 156.5
+    duration_hours: 360
+    time_step_hours: 3
+    key_dimension: flood_control_score
+
+dynamic_triggers:
+  S01:
+    - stage: T0
+      trigger_hours: 0
+      sim_hours_before: 0
+      type: instruction_change
+      description: 将水位从157.5m降至156.5m。
+      natural_lang: 台汛期预泄启动：请尽快将库水位从157.5m降至156.5m，腾出防洪库容。
+      pass_condition:
+        type: level_target
+        target: 156.5
+        tolerance: 0.3
+      is_hard_task: false
+    - stage: T1
+      trigger_hours: 6
+      sim_hours_before: 6
+      type: instruction_change
+      description: 加快预泄，6小时内必须降至156.5m。
+      natural_lang: 上级指令加严：请加快预泄，在接下来6小时内必须将水位降至156.5m。
+      pass_condition:
+        type: level_target
+        target: 156.5
+        tolerance: 0.3
+      is_hard_task: false
+    - stage: T2
+      trigger_hours: 12
+      sim_hours_before: 6
+      type: instruction_change
+      description: 进一步降至155.5m以腾出额外库容。
+      natural_lang: 预警升级：请进一步将目标水位降至155.5m，为可能的更大洪水腾出额外库容。
+      pass_condition:
+        type: level_target
+        target: 155.5
+        tolerance: 0.3
+      is_hard_task: false
+    - stage: T3
+      trigger_hours: 24
+      sim_hours_before: 12
+      type: instruction_change
+      description: 台风减弱，恢复156.5m目标并减小出库。
+      natural_lang: 台风减弱：恢复以156.5m为控制目标，并在确保安全前提下减小出库流量。
+      pass_condition:
+        type: direction
+        expected: decrease
+      is_hard_task: false
+  S02:
+    - stage: T0
+      trigger_hours: 0
+      sim_hours_before: 0
+      type: instruction_change
+      description: 控制鹤城站≤14000 m3/s。
+      natural_lang: 梅汛期错峰调度：请控制鹤城站流量不超过14000 m3/s。
+      pass_condition:
+        type: flow_limit
+        max_flow: 14000.0
+      is_hard_task: false
+    - stage: T1
+      trigger_hours: 6
+      sim_hours_before: 6
+      type: instruction_change
+      description: 鹤城站上限降至12000 m3/s。
+      natural_lang: 上级防汛指令变更：鹤城站控制上限降至12000 m3/s，请立即调整错峰方案。
+      pass_condition:
+        type: flow_limit
+        max_flow: 12000.0
+      is_hard_task: false
+    - stage: T2
+      trigger_hours: 12
+      sim_hours_before: 6
+      type: instruction_change
+      description: 关闸为青田减压，出库≤400 m3/s。
+      natural_lang: 紧急减压指令：请关闸控制出库流量不超过400 m3/s，为青田下游减压。
+      pass_condition:
+        type: flow_limit
+        max_flow: 400.0
+      is_hard_task: false
+    - stage: T3
+      trigger_hours: 24
+      sim_hours_before: 12
+      type: instruction_change
+      description: 逐步恢复出库，水位不超161.5m。
+      natural_lang: 洪峰缓解：请逐步恢复出库流量，但全过程库水位不得超过161.5m。
+      pass_condition:
+        type: level_max
+        max_level: 161.5
+      is_hard_task: false
+  S03:
+    - stage: T0
+      trigger_hours: 0
+      sim_hours_before: 0
+      type: instruction_change
+      description: 按分级规则执行应急调度。
+      natural_lang: 极端洪水应急启动：请按分级规则执行应急调度，优先保障大坝安全。
+      pass_condition:
+        type: direction
+        expected: increase
+      is_hard_task: false
+    - stage: T1
+      trigger_hours: 6
+      sim_hours_before: 6
+      type: instruction_change
+      description: 大坝监测异常，最大出库限制至8000 m3/s。
+      natural_lang: 大坝监测异常：最大出库立即限制至8000 m3/s，请在保障大坝安全前提下说明约束冲突并调整方案。
+      pass_condition:
+        type: best_effort
+        primary:
+          type: flow_limit
+          max_flow: 8000.0
+        safety_constraint:
+          type: level_max
+          max_level: 169.15
+        tolerance_multiplier: 2.0
+      is_hard_task: true
+    - stage: T2
+      trigger_hours: 12
+      sim_hours_before: 6
+      type: instruction_change
+      description: 监测恢复，解除限制并全力泄洪。
+      natural_lang: 监测恢复正常：解除8000 m3/s限制，请全力泄洪并尽快回落水位。
+      pass_condition:
+        type: direction
+        expected: increase
+      is_hard_task: false
+    - stage: T3
+      trigger_hours: 36
+      sim_hours_before: 24
+      type: instruction_change
+      description: 退水阶段控制出库≤6000 m3/s。
+      natural_lang: 进入退水阶段：请将出库流量控制在6000 m3/s以内，平稳转入恢复调度。
+      pass_condition:
+        type: flow_limit
+        max_flow: 6000.0
+      is_hard_task: false
+  S04:
+    - stage: T0
+      trigger_hours: 0
+      sim_hours_before: 0
+      type: instruction_change
+      description: 按计划消落曲线优化发电。
+      natural_lang: 枯水期调度启动：请按计划消落曲线优化发电，30天后水位应接近149.18m。
+      pass_condition:
+        type: level_target
+        target: 149.18
+        tolerance: 0.5
+      is_hard_task: false
+    - stage: T1
+      trigger_hours: 720
+      sim_hours_before: 720
+      type: instruction_change
+      description: 电网要求提升出力至额定400 m3/s。
+      natural_lang: 电网高峰负荷：请提升出力至额定工况，出库向400 m3/s靠拢。
+      pass_condition:
+        type: direction
+        expected: increase
+      is_hard_task: false
+    - stage: T2
+      trigger_hours: 1080
+      sim_hours_before: 360
+      type: instruction_change
+      description: 来水偏枯，出库降至最小生态流量50 m3/s。
+      natural_lang: 来水偏枯：请将出库降至最小生态流量50 m3/s附近，优先保库容。
+      pass_condition:
+        type: direction
+        expected: decrease
+      is_hard_task: false
+    - stage: T3
+      trigger_hours: 1440
+      sim_hours_before: 360
+      type: instruction_change
+      description: 恢复正常，12月末水位达147.52m。
+      natural_lang: 枯水期末段：恢复正常运行，并确保12月末水位达到147.52m。
+      pass_condition:
+        type: level_target
+        target: 147.52
+        tolerance: 0.5
+      is_hard_task: false
+  S05:
+    - stage: T0
+      trigger_hours: 0
+      sim_hours_before: 0
+      type: instruction_change
+      description: 15天内水位从160m降至156.5m。
+      natural_lang: 梅台过渡期启动：请在15天内将水位从160.0m逐步降至156.5m。
+      pass_condition:
+        type: direction
+        expected: decrease
+      is_hard_task: false
+    - stage: T1
+      trigger_hours: 72
+      sim_hours_before: 72
+      type: instruction_change
+      description: 台风提前，5天内完成降水位。
+      natural_lang: 台风提前：请改为在5天内完成降水位任务，尽快降至156.5m。
+      pass_condition:
+        type: level_target
+        target: 156.5
+        tolerance: 0.3
+      is_hard_task: false
+    - stage: T2
+      trigger_hours: 120
+      sim_hours_before: 48
+      type: instruction_change
+      description: 台风偏移，恢复原计划节奏。
+      natural_lang: 台风路径偏移：恢复原计划节奏，继续平稳下泄并避免过度出库。
+      pass_condition:
+        type: direction
+        expected: decrease
+      is_hard_task: false
+    - stage: T3
+      trigger_hours: 240
+      sim_hours_before: 120
+      type: instruction_change
+      description: 最终目标降至155.5m。
+      natural_lang: 最终调度目标调整：请在剩余过渡期内将水位降至155.5m。
+      pass_condition:
+        type: level_target
+        target: 155.5
+        tolerance: 0.3
+      is_hard_task: false
+
+automated_config:
+  S02:
+    true_inflow: 3380.0
+    forecast_interval_hours: 6
+    error_near: 0.05
+    error_mid: 0.20
+    error_far: 0.40
+    warning_level: 161.0
+    state_deviation_threshold: 0.05
+    key_dims:
+      - flood_control_score
+      - ecological_score
+    switch_threshold: 0.10
+    temperature_override: 0.0
+    baseline_deviation_id: S02-D0
+    reproducibility:
+      llm_seed: 2025
+      expected_update_count: 8
+    deviation_generation:
+      mode: hydrograph_transform
+      reference_elapsed_hours: [0, 6, 12, 18, 24, 30, 36, 42]
+      reference_forecast_sequence: [2800.0, 2945.0, 3090.0, 3235.0, 3380.0, 3235.0, 3090.0, 2945.0]
+      reference_base_flow: 2800.0
+      reference_peak_flow: 3380.0
+      reference_peak_hour: 24
+      clamp_min_flow: 0.0
+    controller_config:
+      scheduled_update_interval_steps: 1
+      min_ecological_flow: 50.0
+      warning_release_multiplier: 1.15
+      dead_level: 121.0
+      low_level_release_multiplier: 0.85
+    deviation_scenarios:
+      - id: S02-D0
+        name: 无偏差基线
+        deviation_type: none
+        actual_peak_flow: 3380.0
+        actual_peak_hour: 24
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D1a
+        name: 峰现提前6h
+        deviation_type: timing_early
+        actual_peak_flow: 3380.0
+        actual_peak_hour: 18
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D1b
+        name: 峰现滞后6h
+        deviation_type: timing_late
+        actual_peak_flow: 3380.0
+        actual_peak_hour: 30
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D2a
+        name: 峰值增大20%
+        deviation_type: magnitude_high
+        actual_peak_flow: 4056.0
+        actual_peak_hour: 24
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D2b
+        name: 峰值增大40%
+        deviation_type: magnitude_high
+        actual_peak_flow: 4732.0
+        actual_peak_hour: 24
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D2c
+        name: 峰值减小20%
+        deviation_type: magnitude_low
+        actual_peak_flow: 2704.0
+        actual_peak_hour: 24
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D3a
+        name: 峰现提前+峰值增大（压力测试）
+        deviation_type: combined_worst
+        actual_peak_flow: 4732.0
+        actual_peak_hour: 18
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+      - id: S02-D3b
+        name: 峰现滞后+峰值减小
+        deviation_type: combined_mild
+        actual_peak_flow: 2704.0
+        actual_peak_hour: 30
+        forecast_peak_flow: 3380.0
+        forecast_peak_hour: 24
+  S04:
+    true_inflow: 70.0
+    inflow: 70.0
+    initial_inflow: 80.0
+    current_level: 150.0
+    duration_hours: 720
+    forecast_interval_hours: 240
+    error_xun: 0.15
+    warning_level: 152.0
+    state_deviation_threshold: 0.05
+    key_dims:
+      - power_generation_score
+      - ecological_score
+    switch_threshold: 0.10
+    temperature_override: 0.0
+    baseline_deviation_id: S04-D0
+    reproducibility:
+      llm_seed: 2025
+      expected_update_count: 3
+    deviation_generation:
+      mode: xun_sequence
+      reference_elapsed_hours: [0, 240, 480]
+      reference_forecast_sequence: [70.0, 70.0, 70.0]
+      reference_actual_sequence: [70.0, 70.0, 70.0]
+    controller_config:
+      scheduled_update_interval_steps: 1
+      min_ecological_flow: 50.0
+      generation_ratio: 0.9
+      min_level: 145.0
+      low_level_release_multiplier: 0.8
+    deviation_scenarios:
+      - id: S04-D0
+        name: 无偏差基线
+        deviation_type: none
+        xun_actual: [70.0, 70.0, 70.0]
+        xun_forecast: [70.0, 70.0, 70.0]
+      - id: S04-D1a
+        name: 单旬偏枯-15%
+        deviation_type: single_xun_low
+        xun_actual: [59.5, 70.0, 70.0]
+        xun_forecast: [70.0, 70.0, 70.0]
+      - id: S04-D1b
+        name: 单旬偏枯-30%
+        deviation_type: single_xun_low
+        xun_actual: [49.0, 70.0, 70.0]
+        xun_forecast: [70.0, 70.0, 70.0]
+      - id: S04-D2
+        name: 连续偏枯
+        deviation_type: consecutive_low
+        xun_actual: [49.0, 52.5, 70.0]
+        xun_forecast: [70.0, 70.0, 70.0]
+      - id: S04-D3a
+        name: 前丰后枯
+        deviation_type: phase_shift
+        xun_actual: [91.0, 49.0, 70.0]
+        xun_forecast: [70.0, 70.0, 70.0]
+      - id: S04-D3b
+        name: 前枯后丰
+        deviation_type: phase_shift
+        xun_actual: [49.0, 91.0, 70.0]
+        xun_forecast: [70.0, 70.0, 70.0]

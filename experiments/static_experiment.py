@@ -17,8 +17,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from baseline_human import HumanBaselineScheduler
-from evaluation_metrics import _build_tankan_spec, _run_pyresops_eval
+from experiments.baseline_human import HumanBaselineScheduler
+from experiments.evaluation_metrics import _build_tankan_spec, _run_pyresops_eval
 
 # 静态场景定义
 STATIC_SCENARIOS = [
@@ -63,20 +63,65 @@ def _get_results_dir() -> Path:
     return results_dir
 
 
+def _derive_tool_calls_detail(result: dict) -> list[dict]:
+    existing = result.get("tool_calls_detail")
+    if isinstance(existing, list) and existing:
+        normalized = []
+        for idx, item in enumerate(existing, 1):
+            if not isinstance(item, dict):
+                continue
+            normalized.append(
+                {
+                    "call_order": int(item.get("call_order", idx)),
+                    "tool_name": str(item.get("tool_name", "unknown")),
+                }
+            )
+        if normalized:
+            return normalized
+
+    trace = result.get("llm_execution_trace", {})
+    events = trace.get("tool_events", []) if isinstance(trace, dict) else []
+    if isinstance(events, list) and events:
+        normalized = []
+        for idx, event in enumerate(events, 1):
+            if not isinstance(event, dict):
+                continue
+            normalized.append(
+                {
+                    "call_order": int(event.get("call_order", idx)),
+                    "tool_name": str(event.get("tool_name", "unknown")),
+                }
+            )
+        if normalized:
+            return normalized
+
+    chain = result.get("tool_call_chain", [])
+    if isinstance(chain, list):
+        return [
+            {
+                "call_order": idx,
+                "tool_name": str(name),
+            }
+            for idx, name in enumerate(chain, 1)
+        ]
+
+    return []
+
+
 def run_llm_scenario(scenario: dict, model_profile: str | None = None) -> dict:
     """
     使用 LLM + MCP 工具链运行单个静态场景。
 
     Args:
         scenario: 场景参数字典
-        model_profile: 模型配置名称（对应 config.yml 中的 profile）
+        model_profile: 模型配置名称（对应 experiments/config/llm_config.yml 中的 profile）
 
     Returns:
         包含工具调用链、评分、约束检查等完整信息的字典
     """
-    from paper_experiment_runner import AgnoMCPExperiment
+    from pyresops.agents import ReservoirAgentRuntime
 
-    exp = AgnoMCPExperiment(model_profile=model_profile)
+    exp = ReservoirAgentRuntime(model_profile=model_profile)
     start_time = time.time()
     mcp_result = exp.run_scenario(scenario)
     elapsed = time.time() - start_time
@@ -85,7 +130,7 @@ def run_llm_scenario(scenario: dict, model_profile: str | None = None) -> dict:
     spec = _build_tankan_spec(flood_limit_level=scenario.get("flood_limit_level", 156.5))
     eval_dict = _run_pyresops_eval(scenario, outflow, spec)
 
-    tool_call_chain = mcp_result.get("tool_calls_detail", [])
+    tool_call_chain = _derive_tool_calls_detail(mcp_result)
     tool_names = [tc.get("tool_name", "unknown") for tc in tool_call_chain]
 
     # 流程完整性判断（是否调用了核心5个工具）
@@ -117,9 +162,7 @@ def run_llm_scenario(scenario: dict, model_profile: str | None = None) -> dict:
         "total_time_seconds": round(elapsed, 3),
         "final_decision_text": mcp_result.get("final_decision_text", ""),
         "success": mcp_result.get("success", False),
-        "sim_details": {
-            k: v for k, v in eval_dict.items() if k.startswith("sim_")
-        },
+        "sim_details": {k: v for k, v in eval_dict.items() if k.startswith("sim_")},
     }
 
 
@@ -193,8 +236,7 @@ def run_static_experiment(scenario: dict, model_profile: str | None = None) -> d
         "ecological_diff": score_diff("ecological"),
         "compliance_diff": score_diff("compliance"),
         "violation_delta": (
-            llm_result["llm_constraint_violations"]
-            - human_result["human_constraint_violations"]
+            llm_result["llm_constraint_violations"] - human_result["human_constraint_violations"]
         ),
         "llm_better": l_scores["overall"] >= h_scores["overall"],
     }
@@ -249,11 +291,13 @@ def run_static_experiments(
             results.append(result)
         except Exception as e:
             print(f"  ✗ 场景 {scenario['id']} 失败: {e}")
-            results.append({
-                "scenario_id": scenario["id"],
-                "error": str(e),
-                "success": False,
-            })
+            results.append(
+                {
+                    "scenario_id": scenario["id"],
+                    "error": str(e),
+                    "success": False,
+                }
+            )
 
     return results
 

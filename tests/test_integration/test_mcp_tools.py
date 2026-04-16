@@ -1,6 +1,8 @@
 """Integration tests for MCP tools."""
 
 from datetime import datetime
+import json
+import types
 
 from pyresops.services import (
     ProgramService,
@@ -10,6 +12,7 @@ from pyresops.services import (
     ExplanationService,
 )
 from pyresops.domain.program import TimeHorizon
+from pyresops.agents import ReservoirToolBundleFactory
 
 
 def test_end_to_end_workflow(sample_reservoir_spec, sample_forecast):
@@ -67,3 +70,54 @@ def test_module_listing(sample_reservoir_spec):
     assert "inflow_driven" in module_types
     assert "storage_driven" in module_types
     assert "flexible_release" in module_types
+
+
+def test_tool_bundle_rejects_unsupported_module_type(monkeypatch):
+    agno_tools = types.SimpleNamespace(tool=lambda fn: fn)
+    monkeypatch.setitem(__import__("sys").modules, "agno.tools", agno_tools)
+
+    scenario = {
+        "id": "S01",
+        "name": "demo",
+        "description": "demo",
+        "flood_limit_level": 156.5,
+        "current_level": 157.5,
+        "initial_storage": 33.1,
+        "initial_inflow": 1000.0,
+        "inflow": 1200.0,
+        "target_level": 156.5,
+        "season": "flood",
+        "flood_risk": "high",
+        "duration_hours": 24,
+        "time_step_hours": 6,
+    }
+
+    class _Spec:
+        dead_level = 120.0
+        normal_level = 160.0
+        design_flood_level = 165.87
+        total_capacity = 41.9
+        flood_capacity = 3.5
+
+        class _DC:
+            @staticmethod
+            def get_max_discharge(_level):
+                return 6000.0
+
+        discharge_capacity = _DC()
+
+    factory = ReservoirToolBundleFactory(
+        scenario_resolver=lambda sid: scenario if sid == "S01" else None
+    )
+    tools = {tool.__name__: tool for tool in factory.make_tools(_Spec(), runtime_scenario=scenario)}
+
+    payload = json.loads(
+        tools["simulate_dispatch_program"](
+            scenario_id="S01",
+            target_outflow=1000.0,
+            module_type="legacy_mode",
+        )
+    )
+
+    assert payload["error"] == "unsupported_module_type"
+    assert payload["module_type"] == "legacy_mode"

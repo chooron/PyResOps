@@ -2,6 +2,11 @@
 
 from datetime import datetime, timedelta
 
+from experiments.baseline_human import HumanBaselineScheduler
+from experiments.evaluation_metrics import _build_tankan_spec, _run_pyresops_eval
+from pyresops.agents import ReservoirToolBundleFactory
+from pyresops.core import resolve_scenario_start_time
+
 from pyresops.domain.forecast import ForecastBundle, ForecastSeries
 from pyresops.domain.program import DispatchProgram, ModuleInstance, TimeHorizon
 from pyresops.modules import FlexibleReleaseModule
@@ -127,3 +132,87 @@ def test_step_state_timestamp_tracks_current_time(
     assert recorder.seen_timestamps[0] == start
     assert recorder.seen_timestamps[1] == start + timedelta(hours=1)
     assert recorder.seen_timestamps[2] == start + timedelta(hours=2)
+
+
+def test_resolve_scenario_start_time_shared_across_all_paths(monkeypatch) -> None:
+    scenario = {
+        "id": "S01",
+        "name": "S01",
+        "description": "clock alignment",
+        "flood_limit_level": 156.5,
+        "current_level": 157.5,
+        "initial_storage": 33.1,
+        "initial_inflow": 1000.0,
+        "inflow": 1200.0,
+        "target_level": 156.5,
+        "season": "flood",
+        "flood_risk": "high",
+        "duration_hours": 24,
+        "time_step_hours": 6,
+        "scenario_start_time": "2026-01-02T03:00:00",
+    }
+    expected_start = resolve_scenario_start_time(scenario)
+
+    captured: dict[str, datetime] = {}
+
+    from experiments import evaluation_metrics as eval_module
+
+    original_eval_resolver = eval_module.resolve_scenario_start_time
+
+    def wrapped_eval_resolver(sc: dict):
+        start = original_eval_resolver(sc)
+        captured["evaluation_metrics"] = start
+        return start
+
+    monkeypatch.setattr(eval_module, "resolve_scenario_start_time", wrapped_eval_resolver)
+    spec = _build_tankan_spec(flood_limit_level=scenario.get("flood_limit_level", 156.5))
+    eval_result = _run_pyresops_eval(scenario, 1000.0, spec)
+    assert eval_result["overall_score"] >= 0.0
+
+    from experiments import baseline_human as human_module
+
+    original_human_resolver = human_module.resolve_scenario_start_time
+
+    def wrapped_human_resolver(sc: dict):
+        start = original_human_resolver(sc)
+        captured["human_baseline"] = start
+        return start
+
+    monkeypatch.setattr(human_module, "resolve_scenario_start_time", wrapped_human_resolver)
+    human_scheduler = HumanBaselineScheduler()
+    human_result = human_scheduler.schedule(scenario)
+    assert human_result["overall_score"] >= 0.0
+
+    agno_tools = __import__("types").SimpleNamespace(tool=lambda fn: fn)
+    monkeypatch.setitem(__import__("sys").modules, "agno.tools", agno_tools)
+
+    factory = ReservoirToolBundleFactory(
+        scenario_resolver=lambda sid: scenario if sid == "S01" else None
+    )
+    tools = {tool.__name__: tool for tool in factory.make_tools(spec, runtime_scenario=scenario)}
+
+    from pyresops.agents import tool_bundle as tool_bundle_module
+
+    original_resolver = tool_bundle_module.resolve_tool_bundle_start_time
+    call_order: list[datetime] = []
+
+    def wrapped_resolver(sc: dict):
+        start = original_resolver(sc)
+        call_order.append(start)
+        return start
+
+    monkeypatch.setattr(tool_bundle_module, "resolve_tool_bundle_start_time", wrapped_resolver)
+
+    tools["simulate_dispatch_program"]("S01", 1000.0, "constant_release")
+    tools["evaluate_dispatch_result"]("S01", 1000.0)
+    tools["optimize_release_plan"]("S01", horizon_hours=24)
+
+    captured["tool_bundle_simulation"] = call_order[0]
+    captured["tool_bundle_evaluation"] = call_order[1]
+    captured["tool_bundle_optimization"] = call_order[2]
+
+    assert captured["tool_bundle_simulation"] == expected_start
+    assert captured["tool_bundle_evaluation"] == expected_start
+    assert captured["tool_bundle_optimization"] == expected_start
+    assert captured["evaluation_metrics"] == expected_start
+    assert captured["human_baseline"] == expected_start

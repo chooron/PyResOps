@@ -1,48 +1,66 @@
 {
   "scenario_id": "S02",
   "scenario_name": "Plum Flood Season Peak-shaving Dispatch",
-  "baseline_score": 91.671,
-  "baseline_constraint_rate": 1.0,
-  "rounds": {
-    "round_1": {
-      "scenario_id": "S02",
-      "round": 1,
-      "trigger_count": 1,
-      "baseline_score": 91.671,
-      "final_score": 91.671,
-      "score_improvement": 0.0,
-      "baseline_constraint_rate": 1.0,
-      "final_constraint_rate": 1.0,
-      "constraint_rate_improvement": 0.0,
-      "total_tool_calls": 27,
-      "adjustments": [
-        {
-          "trigger_index": 1,
-          "trigger_type": "instruction_change",
-          "outflow_before": 3380.0,
-          "outflow_after": 3380.0,
-          "outflow_delta": 0.0,
-          "score_before": 91.671,
-          "score_after": 91.671,
-          "score_delta": 0.0,
-          "constraint_rate_before": 1.0,
-          "constraint_rate_after": 1.0,
-          "trend": "maintained"
-        }
-      ],
-      "final_outflow": 3380.0,
-      "final_violations": 0
-    }
+  "overall_pass_rate": 1.0,
+  "stage_pass_count": 1,
+  "stage_total": 1,
+  "hard_task_partial_credits": {},
+  "adjustment_effective": true,
+  "constraint_achievement_rate": {
+    "before": 1.0,
+    "after": 0.6667,
+    "trend": "degraded"
   },
-  "comparison_table": [
+  "adjustment_delta": {
+    "outflow_delta": -2450.0
+  },
+  "score_change": 38.9361,
+  "stages": [
     {
-      "round": 1,
-      "trigger_count": 1,
-      "final_score": 91.671,
-      "score_improvement": 0.0,
-      "final_constraint_rate": 1.0,
-      "total_tool_calls": 27
+      "stage": "T0",
+      "trigger_hours": 0,
+      "sim_hours_before": 0,
+      "instruction": "梅汛期错峰调度：请控制鹤城站流量不超过14000 m3/s。",
+      "state_before": {
+        "level": 159.8,
+        "storage": 35.09,
+        "inflow": 2800.0,
+        "outflow": 2800.0
+      },
+      "llm_outflow": 350.0,
+      "compliance": {
+        "pass": true,
+        "constraint_violations": 0,
+        "response_direction_correct": true,
+        "is_hard_task": false,
+        "partial_credit": 1.0,
+        "detail": "flow_limit: actual=350.0, max=14000.0"
+      },
+      "state_after_sim": {
+        "level": 160.842,
+        "storage": 35.7445,
+        "inflow": 3380.0,
+        "outflow": 350.0
+      },
+      "evaluation": {
+        "overall_score": 38.9361,
+        "flood_control_score": 92.8281,
+        "water_supply_score": 99.75,
+        "power_generation_score": 5.8097,
+        "ecological_score": 100.0,
+        "constraint_violations": 1,
+        "sim_max_level": 160.842,
+        "sim_min_level": 159.8,
+        "sim_final_level": 160.842,
+        "sim_avg_outflow": 350.0
+      },
+      "tool_call_count": 1,
+      "tool_call_chain": [
+        "simulate_dispatch_program"
+      ],
+      "total_time_seconds": 0.01,
+      "final_decision_text": "Stage T0: recommend outflow 350.0 m3/s",
+      "llm_execution_trace": {}
     }
-  ],
-  "best_round": 1
+  ]
 }
