@@ -15,6 +15,7 @@ from ..domain.policy import PolicyBundle
 from ..domain.program import DispatchProgram
 from ..domain.rule import DispatchRule, RuleAction, RuleSet
 from ..domain.result import EvaluationResult, SimulationResult
+from ..plugins import PluginBundleConfig
 from ..storage.repository import Repository
 from .evaluation import EvaluationService
 from .optimization import OptimizationService
@@ -80,20 +81,21 @@ class RollingOpsService:
         self.repository = repository
         self._working_store: dict[tuple[str, str], WorkingContext] = {}
 
-    def optimize_flexible_release_plan(
+    def optimize_release_plan(
         self,
         *,
         reservoir_id: str,
         context_id: str,
-        horizon_hours: int,
-        control_interval_seconds: int,
         forecast: ForecastBundle,
         constraints: dict[str, Any] | None = None,
         objectives: dict[str, Any] | None = None,
+        task_constraints: dict[str, Any] | None = None,
         directives: dict[str, Any] | None = None,
+        requested_module_type: str | None = None,
+        allowed_module_types: list[str] | None = None,
         rules: list[dict[str, Any]] | None = None,
         policy_bundle: PolicyBundle | None = None,
-        optimizer_backend: str | None = None,
+        plugin_bundle: PluginBundleConfig | None = None,
     ) -> dict[str, Any]:
         """Generate candidate plan and evidence; auto-adopt if no working plan exists."""
         initial_state = self.snapshot_service.get_snapshot(reservoir_id)
@@ -102,6 +104,7 @@ class RollingOpsService:
 
         constraints = constraints or {}
         objectives = objectives or {}
+        task_constraints = task_constraints or {}
         directives = directives or {}
         resolved_policy = policy_bundle or self._legacy_to_policy_bundle(
             constraints=constraints,
@@ -110,20 +113,23 @@ class RollingOpsService:
             custom_rules=rules,
         )
 
-        program, schedule = self.optimization_service.optimize_flexible_release_plan(
+        optimization_result = self.optimization_service.optimize_release_plan(
             initial_state=initial_state,
             forecast=forecast,
-            horizon_hours=horizon_hours,
-            control_interval_seconds=control_interval_seconds,
             constraints=constraints,
             objectives=objectives,
+            task_constraints=task_constraints,
             directives=directives,
-            optimizer_backend=optimizer_backend,
+            requested_module_type=requested_module_type,
+            allowed_module_types=allowed_module_types,
+            policy_bundle=resolved_policy,
             metadata={
                 "reservoir_id": reservoir_id,
                 "context_id": context_id,
             },
+            plugin_bundle=plugin_bundle,
         )
+        program = optimization_result.program
 
         orchestrator = DecisionOrchestrator()
         simulation = self.simulation_service.run_simulation(
@@ -132,6 +138,7 @@ class RollingOpsService:
             forecast,
             policy_bundle=resolved_policy,
             orchestrator=orchestrator,
+            plugin_bundle=plugin_bundle,
         )
         evaluation = self.evaluation_service.evaluate(
             simulation,
@@ -167,7 +174,7 @@ class RollingOpsService:
             )
 
         auto_adopted = False
-        if context.working_plan_id is None:
+        if context.working_plan_id is None and optimization_result.selected_candidate.feasible:
             auto_adopted = True
             context.working_plan_id = program.id
             context.latest_conditions_hash = conditions_hash
@@ -177,13 +184,17 @@ class RollingOpsService:
         return {
             "candidate_plan_id": program.id,
             "summary": {
-                "segment_count": schedule.segment_count,
-                "control_interval_seconds": schedule.control_interval_seconds,
-                "release_values": schedule.release_values,
+                "selected_module_type": optimization_result.selected_candidate.module_type,
+                "selected_module_parameters": optimization_result.selected_candidate.module_parameters,
+                "family_attempts": optimization_result.family_attempts,
+                "feasible_solution_found": optimization_result.selected_candidate.feasible,
+                "fallback_applied": optimization_result.fallback_applied,
+                "solution_mode": optimization_result.solution_mode,
                 "overall_score": evaluation.overall_score,
                 "violations_count": len(evaluation.constraint_violations),
                 "decision_trace_steps": len(trace),
                 "auto_adopted_as_working": auto_adopted,
+                "plugin_results": simulation.metadata.get("plugin_results", {}),
             },
         }
 
@@ -197,6 +208,7 @@ class RollingOpsService:
         directives: dict[str, Any] | None = None,
         rules: list[dict[str, Any]] | None = None,
         policy_bundle: PolicyBundle | None = None,
+        plugin_bundle: PluginBundleConfig | None = None,
     ) -> dict[str, Any]:
         """Reassess current working plan under updated conditions; read-only."""
         context = self._get_context(reservoir_id, context_id)
@@ -230,6 +242,7 @@ class RollingOpsService:
             forecast,
             policy_bundle=resolved_policy,
             orchestrator=DecisionOrchestrator(),
+            plugin_bundle=plugin_bundle,
         )
         reassessed_eval = self.evaluation_service.evaluate(
             reassessed_sim,
@@ -265,6 +278,7 @@ class RollingOpsService:
                 "avg_outflow": reassessed_sim.avg_outflow,
                 "decision_trace_steps": len(reassessed_sim.metadata.get("decision_trace", [])),
                 "rationale": rationale,
+                "plugin_results": reassessed_sim.metadata.get("plugin_results", {}),
             },
         }
 

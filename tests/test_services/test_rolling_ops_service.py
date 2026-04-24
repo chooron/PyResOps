@@ -45,12 +45,8 @@ def rolling_services(sample_reservoir_spec):
     )
     return {
         "snapshot": snapshot_service,
-        "program": program_service,
-        "simulation": simulation_service,
-        "evaluation": evaluation_service,
-        "optimization": optimization_service,
-        "repository": repository,
         "rolling": rolling,
+        "repository": repository,
     }
 
 
@@ -60,11 +56,9 @@ def test_reassess_plan_is_read_only(rolling_services, sample_reservoir_spec) -> 
     state = ss.create_initial_snapshot("res1", sample_reservoir_spec, 165.0, 8000.0)
     forecast = _build_forecast(state.timestamp)
 
-    optimize_result = rolling.optimize_flexible_release_plan(
+    optimize_result = rolling.optimize_release_plan(
         reservoir_id="res1",
         context_id="ctx1",
-        horizon_hours=12,
-        control_interval_seconds=3 * 3600,
         forecast=forecast,
     )
     before = rolling.get_working_state(reservoir_id="res1", context_id="ctx1")
@@ -88,18 +82,14 @@ def test_replace_working_plan_mutates_only_on_explicit_call(
     rolling = rolling_services["rolling"]
     state = ss.create_initial_snapshot("res1", sample_reservoir_spec, 165.0, 8000.0)
 
-    first = rolling.optimize_flexible_release_plan(
+    first = rolling.optimize_release_plan(
         reservoir_id="res1",
         context_id="ctx2",
-        horizon_hours=12,
-        control_interval_seconds=3 * 3600,
         forecast=_build_forecast(state.timestamp, base=7000.0),
     )
-    second = rolling.optimize_flexible_release_plan(
+    second = rolling.optimize_release_plan(
         reservoir_id="res1",
         context_id="ctx2",
-        horizon_hours=12,
-        control_interval_seconds=3 * 3600,
         forecast=_build_forecast(state.timestamp, base=10000.0),
     )
 
@@ -124,20 +114,16 @@ def test_finalize_plan_persists_append_only_history(
     repo = rolling_services["repository"]
     state = ss.create_initial_snapshot("res2", sample_reservoir_spec, 166.0, 7800.0)
 
-    first = rolling.optimize_flexible_release_plan(
+    first = rolling.optimize_release_plan(
         reservoir_id="res2",
         context_id="ctx3",
-        horizon_hours=12,
-        control_interval_seconds=3 * 3600,
         forecast=_build_forecast(state.timestamp, base=7600.0),
     )
     finalize_1 = rolling.finalize_plan(reservoir_id="res2", context_id="ctx3")
 
-    second = rolling.optimize_flexible_release_plan(
+    second = rolling.optimize_release_plan(
         reservoir_id="res2",
         context_id="ctx3",
-        horizon_hours=12,
-        control_interval_seconds=3 * 3600,
         forecast=_build_forecast(state.timestamp, base=9200.0),
     )
     rolling.replace_working_plan(
@@ -159,3 +145,27 @@ def test_finalize_plan_persists_append_only_history(
     assert program_1 is not None
     assert program_2 is not None
     assert program_1["id"] != program_2["id"]
+
+
+def test_infeasible_candidate_is_not_auto_adopted_as_working_plan(
+    rolling_services,
+    sample_reservoir_spec,
+) -> None:
+    ss = rolling_services["snapshot"]
+    rolling = rolling_services["rolling"]
+    state = ss.create_initial_snapshot("res3", sample_reservoir_spec, 165.0, 8000.0)
+
+    result = rolling.optimize_release_plan(
+        reservoir_id="res3",
+        context_id="ctx_best_effort",
+        forecast=_build_forecast(state.timestamp, base=100.0),
+        constraints={"ecological_min_flow": 50.0, "max_release": 5000.0},
+        task_constraints={"target_level": 150.0, "target_tolerance": 0.0},
+    )
+
+    state_after = rolling.get_working_state(reservoir_id="res3", context_id="ctx_best_effort")
+    assert result["summary"]["feasible_solution_found"] is False
+    assert result["summary"]["solution_mode"] == "best_effort"
+    assert result["summary"]["auto_adopted_as_working"] is False
+    assert state_after["working_plan_id"] is None
+    assert result["candidate_plan_id"] in state_after["candidate_plan_ids"]

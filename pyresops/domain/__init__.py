@@ -10,12 +10,22 @@ from .forecast import ForecastBundle, ForecastSeries
 from .program import DispatchProgram, ModuleInstance, SwitchCondition, TimeHorizon
 from .module import OperationModule, ModuleInfo
 from .constraint import ConstraintSet, Constraint
+from .dispatch import (
+    BenchmarkSolveResult,
+    CompiledDispatchContract,
+    CompilerMessage,
+    FallbackTerm,
+    HardConstraint,
+    ObjectiveTerm,
+    ReportingRequirement,
+    SolveCandidate,
+    TaskConstraint,
+)
 from .rule import RuleSet, DispatchRule, RuleAction
 from .policy import PolicyBundle, ExecutionContext
 from .decision import DecisionOutcome, DecisionTraceStep, ViolationRecord
 from .objective import ObjectiveSet, Objective
 from .result import SimulationResult, EvaluationResult, StateSnapshot
-from .release import SegmentedReleaseSchedule
 
 __all__ = [
     "ReservoirSpec",
@@ -32,6 +42,15 @@ __all__ = [
     "ModuleInfo",
     "ConstraintSet",
     "Constraint",
+    "CompilerMessage",
+    "HardConstraint",
+    "TaskConstraint",
+    "ObjectiveTerm",
+    "FallbackTerm",
+    "ReportingRequirement",
+    "CompiledDispatchContract",
+    "SolveCandidate",
+    "BenchmarkSolveResult",
     "RuleSet",
     "DispatchRule",
     "RuleAction",
@@ -45,5 +64,4 @@ __all__ = [
     "SimulationResult",
     "EvaluationResult",
     "StateSnapshot",
-    "SegmentedReleaseSchedule",
 ]

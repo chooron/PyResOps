@@ -2,36 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from ..domain.constraint import Constraint, ConstraintSet
-from ..domain.forecast import ForecastBundle, ForecastSeries
+from ..domain.forecast import ForecastBundle
 from ..domain.policy import PolicyBundle
+from ..plugins import PluginBundleConfig
 from ..domain.rule import DispatchRule, RuleAction, RuleSet
 from ..services.rolling_ops import RollingOpsService
+from .common import build_forecast_bundle_from_payload
 
 
 def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsService) -> None:
     """Setup rolling workflow MCP tools."""
 
     def _build_forecast_bundle(forecast_data: dict[str, Any]) -> ForecastBundle:
-        timestamps = [datetime.fromisoformat(ts) for ts in forecast_data["timestamps"]]
-        inflow_values = [float(v) for v in forecast_data["inflow_values"]]
-        if len(timestamps) != len(inflow_values):
-            raise ValueError("forecast_data timestamps and inflow_values length mismatch")
-
-        return ForecastBundle(
-            forecast_time=datetime.now(),
-            series=[
-                ForecastSeries(
-                    variable="inflow",
-                    timestamps=timestamps,
-                    values=inflow_values,
-                    unit="m3/s",
-                )
-            ],
-        )
+        return build_forecast_bundle_from_payload(forecast_data)
 
     def _build_policy_bundle(policy_data: dict[str, Any] | None) -> PolicyBundle | None:
         if not policy_data:
@@ -55,36 +41,37 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
         )
 
     @mcp_server.tool()
-    def optimize_flexible_release_plan(
+    def optimize_release_plan(
         reservoir_id: str,
         context_id: str,
-        horizon_hours: int,
-        control_interval_seconds: int,
         forecast_data: dict[str, Any],
         constraints: dict[str, Any] | None = None,
         objectives: dict[str, Any] | None = None,
+        task_constraints: dict[str, Any] | None = None,
         directives: dict[str, Any] | None = None,
+        requested_module_type: str | None = None,
+        allowed_module_types: list[str] | None = None,
         rules: list[dict[str, Any]] | None = None,
         policy_bundle: dict[str, Any] | None = None,
-        optimizer_backend: str | None = None,
+        plugin_bundle: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Generate candidate flexible-release plan and supporting evidence."""
+        """Generate candidate release plan and supporting evidence."""
         try:
             forecast = _build_forecast_bundle(forecast_data)
-            result = rolling_ops_service.optimize_flexible_release_plan(
+            return rolling_ops_service.optimize_release_plan(
                 reservoir_id=reservoir_id,
                 context_id=context_id,
-                horizon_hours=horizon_hours,
-                control_interval_seconds=control_interval_seconds,
                 forecast=forecast,
                 constraints=constraints,
                 objectives=objectives,
+                task_constraints=task_constraints,
                 directives=directives,
+                requested_module_type=requested_module_type,
+                allowed_module_types=allowed_module_types,
                 rules=rules,
                 policy_bundle=_build_policy_bundle(policy_bundle),
-                optimizer_backend=optimizer_backend,
+                plugin_bundle=PluginBundleConfig(**plugin_bundle) if plugin_bundle else None,
             )
-            return result
         except Exception as exc:
             return {"error": str(exc)}
 
@@ -95,6 +82,7 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
         updated_external_conditions: dict[str, Any],
         rules: list[dict[str, Any]] | None = None,
         policy_bundle: dict[str, Any] | None = None,
+        plugin_bundle: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Reassess working plan under updated external conditions (read-only)."""
         try:
@@ -109,6 +97,7 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
                 directives=directives,
                 rules=rules,
                 policy_bundle=_build_policy_bundle(policy_bundle),
+                plugin_bundle=PluginBundleConfig(**plugin_bundle) if plugin_bundle else None,
             )
         except Exception as exc:
             return {"error": str(exc)}
@@ -120,7 +109,7 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
         candidate_plan_id: str,
         reason: str,
     ) -> dict[str, Any]:
-        """Explicitly replace working plan with candidate plan."""
+        """Explicitly replace working plan with a generated candidate plan."""
         try:
             return rolling_ops_service.replace_working_plan(
                 reservoir_id=reservoir_id,

@@ -1,6 +1,7 @@
 """Service orchestration layer."""
 
 from .evaluation import EvaluationService
+from .dispatch_contract_compiler import DispatchContractCompiler
 from .explanation import ExplanationService
 from .optimization import OptimizationService
 from .program import ProgramService
@@ -13,6 +14,7 @@ __all__ = [
     "ProgramService",
     "SimulationService",
     "EvaluationService",
+    "DispatchContractCompiler",
     "ExplanationService",
     "OptimizationService",
     "RollingOpsService",

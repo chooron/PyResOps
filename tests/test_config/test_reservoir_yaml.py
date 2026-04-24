@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from pyresops.config import ReservoirYamlError, load_reservoir_bootstrap_from_yaml
+from pyresops.providers import ReservoirYamlError, load_reservoir_bootstrap_from_yaml
 
 
 def test_load_structured_yaml(tmp_path: Path) -> None:

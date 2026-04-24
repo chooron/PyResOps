@@ -65,5 +65,8 @@ Thumbs.db
 .omc/
 
 .planning/
+.tmp/
 
-reference/
+docs
+
+data/

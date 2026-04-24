@@ -1,16 +1,21 @@
-"""FastMCP server for res-ops-mcp."""
+"""FastMCP server assembly for pyresops."""
+
+from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from fastmcp import FastMCP
 
-from .config import ReservoirYamlError, load_reservoir_bootstrap_from_yaml
 from .domain.reservoir import (
     DischargeCapacity,
     LevelStorageCurve,
     ReservoirSpec,
 )
+from .plugins import PluginManager
+from .providers import ReservoirBootstrap, ReservoirYamlError, load_reservoir_bootstrap_from_yaml
 from .services import (
     EvaluationService,
     ExplanationService,
@@ -24,25 +29,39 @@ from .storage import Repository
 from .tools import (
     setup_evaluation_tools,
     setup_explanation_tools,
+    setup_plugin_tools,
     setup_program_tools,
     setup_rolling_ops_tools,
     setup_simulation_tools,
     setup_snapshot_tools,
 )
 
-from .config import ReservoirBootstrap
 
-# 创建 FastMCP 应用
-mcp = FastMCP("res-ops-mcp")
 DEFAULT_RESERVOIR_CONFIG_PATH = Path("configs/default_reservoir.yaml")
 
 
-# 全局服务实例 (示例配置)
+@dataclass
+class ServerRuntime:
+    """Bundled service objects used by the packaged MCP server."""
+
+    reservoir_spec: ReservoirSpec
+    snapshot_service: SnapshotService
+    program_service: ProgramService
+    plugin_manager: PluginManager
+    simulation_service: SimulationService
+    evaluation_service: EvaluationService
+    explanation_service: ExplanationService
+    optimization_service: OptimizationService
+    repository: Repository
+    rolling_ops_service: RollingOpsService
+    bootstrap_context: dict[str, object] | None
+
+
 def create_demo_reservoir_spec() -> ReservoirSpec:
-    """创建示例水库规范."""
+    """Create a built-in demo reservoir when no config is provided."""
     return ReservoirSpec(
         id="demo_reservoir",
-        name="示例水库",
+        name="Demo Reservoir",
         dead_level=150.0,
         normal_level=175.0,
         flood_limit_level=145.0,
@@ -61,12 +80,14 @@ def create_demo_reservoir_spec() -> ReservoirSpec:
     )
 
 
-def load_reservoir_spec_from_env_or_demo() -> tuple[ReservoirSpec, dict[str, object] | None]:
-    """Load reservoir spec from YAML path in env, fallback to demo spec.
+def load_reservoir_spec(
+    reservoir_config_path: str | os.PathLike[str] | None = None,
+) -> tuple[ReservoirSpec, dict[str, object] | None]:
+    """Load a reservoir spec from explicit path, env, default path, or demo fallback."""
+    if reservoir_config_path:
+        bootstrap = load_reservoir_bootstrap_from_yaml(reservoir_config_path)
+        return bootstrap.spec, {"bootstrap": bootstrap, "config_path": str(reservoir_config_path)}
 
-    Environment variable:
-        PYRESOPS_RESERVOIR_CONFIG: absolute or relative path to YAML file.
-    """
     configured_path = os.getenv("PYRESOPS_RESERVOIR_CONFIG")
     if configured_path:
         bootstrap = load_reservoir_bootstrap_from_yaml(configured_path)
@@ -85,56 +106,122 @@ def load_reservoir_spec_from_env_or_demo() -> tuple[ReservoirSpec, dict[str, obj
     return create_demo_reservoir_spec(), None
 
 
-# 初始化服务
-try:
-    reservoir_spec, _bootstrap_context = load_reservoir_spec_from_env_or_demo()
-except ReservoirYamlError as exc:
-    raise RuntimeError(f"Failed to load reservoir configuration: {exc}") from exc
+def build_runtime(
+    *,
+    reservoir_config_path: str | os.PathLike[str] | None = None,
+    data_dir: str | os.PathLike[str] = "data",
+) -> ServerRuntime:
+    """Build the default pyresops runtime bundle used by MCP servers."""
+    try:
+        reservoir_spec, bootstrap_context = load_reservoir_spec(reservoir_config_path)
+    except ReservoirYamlError as exc:
+        raise RuntimeError(f"Failed to load reservoir configuration: {exc}") from exc
 
-snapshot_service = SnapshotService()
-program_service = ProgramService()
-simulation_service = SimulationService(reservoir_spec, program_service.get_module_registry())
-evaluation_service = EvaluationService(reservoir_spec)
-explanation_service = ExplanationService()
-optimization_service = OptimizationService(reservoir_spec, program_service)
-data_dir = Path("data")
-data_dir.mkdir(parents=True, exist_ok=True)
-repository = Repository(str(data_dir / "pyresops.db"))
-rolling_ops_service = RollingOpsService(
-    program_service=program_service,
-    simulation_service=simulation_service,
-    evaluation_service=evaluation_service,
-    optimization_service=optimization_service,
-    snapshot_service=snapshot_service,
-    repository=repository,
-)
+    snapshot_service = SnapshotService()
+    program_service = ProgramService()
+    plugin_manager = PluginManager()
+    default_plugin_bundle = None
+    if bootstrap_context and "bootstrap" in bootstrap_context:
+        bootstrap = bootstrap_context["bootstrap"]
+        if isinstance(bootstrap, ReservoirBootstrap) and bootstrap.execution is not None:
+            default_plugin_bundle = bootstrap.execution.plugins
 
-# 创建初始快照
-if _bootstrap_context and "bootstrap" in _bootstrap_context:
-    bootstrap = _bootstrap_context["bootstrap"]
-    if not isinstance(bootstrap, ReservoirBootstrap):
-        raise RuntimeError("Invalid bootstrap object type")
-    initial_state = bootstrap.create_initial_state()
-    snapshot_service.update_snapshot(reservoir_spec.id, initial_state)
-else:
-    snapshot_service.create_initial_snapshot(
-        reservoir_id=reservoir_spec.id,
-        spec=reservoir_spec,
-        level=165.0,
-        inflow=8000.0,
+    simulation_service = SimulationService(
+        reservoir_spec,
+        program_service.get_module_registry(),
+        plugin_manager=plugin_manager,
+        default_plugin_bundle=default_plugin_bundle,
+    )
+    evaluation_service = EvaluationService(reservoir_spec)
+    explanation_service = ExplanationService()
+    optimization_service = OptimizationService(
+        reservoir_spec,
+        program_service,
+        plugin_manager=plugin_manager,
+        default_plugin_bundle=default_plugin_bundle,
     )
 
-# 注册 MCP 工具
-setup_snapshot_tools(mcp, snapshot_service)
-setup_program_tools(mcp, program_service)
-setup_simulation_tools(mcp, simulation_service, program_service, snapshot_service)
-setup_evaluation_tools(mcp, evaluation_service, simulation_service)
-setup_explanation_tools(
-    mcp, explanation_service, program_service, simulation_service, evaluation_service
-)
-setup_rolling_ops_tools(mcp, rolling_ops_service)
+    resolved_data_dir = Path(data_dir)
+    resolved_data_dir.mkdir(parents=True, exist_ok=True)
+    repository = Repository(str(resolved_data_dir / "pyresops.db"))
+    rolling_ops_service = RollingOpsService(
+        program_service=program_service,
+        simulation_service=simulation_service,
+        evaluation_service=evaluation_service,
+        optimization_service=optimization_service,
+        snapshot_service=snapshot_service,
+        repository=repository,
+    )
+
+    if bootstrap_context and "bootstrap" in bootstrap_context:
+        bootstrap = bootstrap_context["bootstrap"]
+        if not isinstance(bootstrap, ReservoirBootstrap):
+            raise RuntimeError("Invalid bootstrap object type")
+        initial_state = bootstrap.create_initial_state()
+        snapshot_service.update_snapshot(reservoir_spec.id, initial_state)
+    else:
+        snapshot_service.create_initial_snapshot(
+            reservoir_id=reservoir_spec.id,
+            spec=reservoir_spec,
+            level=165.0,
+            inflow=8000.0,
+        )
+
+    return ServerRuntime(
+        reservoir_spec=reservoir_spec,
+        snapshot_service=snapshot_service,
+        program_service=program_service,
+        plugin_manager=plugin_manager,
+        simulation_service=simulation_service,
+        evaluation_service=evaluation_service,
+        explanation_service=explanation_service,
+        optimization_service=optimization_service,
+        repository=repository,
+        rolling_ops_service=rolling_ops_service,
+        bootstrap_context=bootstrap_context,
+    )
+
+
+def register_standard_tools(mcp_server: Any, runtime: ServerRuntime) -> None:
+    """Register the standard pyresops tool surface on an MCP server."""
+    setup_snapshot_tools(mcp_server, runtime.snapshot_service)
+    setup_program_tools(mcp_server, runtime.program_service)
+    setup_simulation_tools(
+        mcp_server,
+        runtime.simulation_service,
+        runtime.program_service,
+        runtime.snapshot_service,
+    )
+    setup_evaluation_tools(mcp_server, runtime.evaluation_service, runtime.simulation_service)
+    setup_explanation_tools(
+        mcp_server,
+        runtime.explanation_service,
+        runtime.program_service,
+        runtime.simulation_service,
+        runtime.evaluation_service,
+    )
+    setup_plugin_tools(mcp_server, runtime.plugin_manager, runtime.snapshot_service)
+    setup_rolling_ops_tools(mcp_server, runtime.rolling_ops_service)
+
+
+def create_server(
+    *,
+    name: str = "res-ops-mcp",
+    reservoir_config_path: str | os.PathLike[str] | None = None,
+    data_dir: str | os.PathLike[str] = "data",
+) -> FastMCP:
+    """Create a packaged FastMCP server with the standard pyresops tool surface."""
+    runtime = build_runtime(
+        reservoir_config_path=reservoir_config_path,
+        data_dir=data_dir,
+    )
+    mcp_server = FastMCP(name)
+    register_standard_tools(mcp_server, runtime)
+    return mcp_server
+
+
+mcp = create_server()
 
 
 if __name__ == "__main__":
-    # 运行 MCP 服务器
     mcp.run()

@@ -12,10 +12,12 @@ This document covers runtime configuration for **PyResOps** for both direct huma
 
 ## Config file format
 
-PyResOps uses a YAML bootstrap file for reservoir specification and optional initial snapshot data.
+PyResOps now uses the provider layer for typed runtime materialization.
+
+For reservoir bootstrap loading:
 
 - Default file location: `configs/default_reservoir.yaml`
-- Loader: `pyresops.config.load_reservoir_bootstrap_from_yaml`
+- Loader: `pyresops.providers.load_reservoir_bootstrap_from_yaml`
 - Accepted top-level styles:
   - Structured payload under `reservoir` with grouped keys
   - Flat payload directly compatible with `ReservoirSpec`
@@ -72,7 +74,7 @@ When `PYRESOPS_RESERVOIR_CONFIG` is not set, startup behavior is:
 1. Try `configs/default_reservoir.yaml` if it exists.
 2. If not present, fall back to built-in demo `ReservoirSpec` values in `pyresops/server.py:create_demo_reservoir_spec`.
 
-YAML snapshot defaults (`pyresops/config/reservoir_yaml.py`):
+YAML snapshot defaults (through the built-in reservoir bootstrap provider):
 
 - `snapshot.inflow`: defaults to `0.0` if omitted.
 - `snapshot.level`: defaults to `spec.normal_level` when omitted.
@@ -98,3 +100,18 @@ uv run python -m pyresops.server
 ```
 
 <!-- VERIFY: Production YAML storage location and secret management approach are deployment-specific and not defined in this repository. -->
+
+## Execution plugin bundle config
+
+Execution plugin bundle keys are:
+
+- `input`
+- `step`
+- `post`
+- `report`
+
+These runtime config models are exposed from `pyresops.plugins`:
+
+- `PluginSelectionConfig`
+- `PluginBundleConfig`
+- `ExecutionConfig`

@@ -3,7 +3,9 @@
 from typing import Any
 
 from ..domain.constraint import Constraint, ConstraintSet
+from ..plugins import PluginBundleConfig
 from ..services import ProgramService, SimulationService, SnapshotService
+from .common import build_forecast_bundle_from_payload
 
 
 def setup_simulation_tools(
@@ -20,24 +22,22 @@ def setup_simulation_tools(
         reservoir_id: str,
         forecast_data: dict[str, Any],
         policy_bundle: dict[str, Any] | None = None,
+        plugin_bundle: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
-        仿真调度方案.
+        Simulate one dispatch program.
 
         Args:
-            program_id: 调度方案ID
-            reservoir_id: 水库ID
-            forecast_data: 预报数据 (包含 timestamps 和 inflow_values)
+            program_id: Dispatch program ID.
+            reservoir_id: Reservoir ID.
+            forecast_data: Forecast payload with `series` or shorthand inflow/rainfall arrays.
 
         Returns:
-            仿真结果摘要
+            Simulation result summary.
         """
-        from datetime import datetime
-        from ..domain.forecast import ForecastBundle, ForecastSeries
         from ..domain.policy import PolicyBundle
         from ..domain.rule import DispatchRule, RuleAction, RuleSet
 
-        # 获取方案和初始状态
         program = program_service.get_program(program_id)
         if not program:
             return {"error": f"Program not found: {program_id}"}
@@ -46,18 +46,7 @@ def setup_simulation_tools(
         if not initial_state:
             return {"error": f"Snapshot not found for reservoir: {reservoir_id}"}
 
-        # 构建预报数据
-        timestamps = [datetime.fromisoformat(ts) for ts in forecast_data["timestamps"]]
-        inflow_values = forecast_data["inflow_values"]
-
-        forecast = ForecastBundle(
-            forecast_time=datetime.now(),
-            series=[
-                ForecastSeries(
-                    variable="inflow", timestamps=timestamps, values=inflow_values, unit="m³/s"
-                )
-            ],
-        )
+        forecast = build_forecast_bundle_from_payload(forecast_data)
 
         policy_obj = None
         if policy_bundle:
@@ -76,15 +65,15 @@ def setup_simulation_tools(
                 metadata=policy_bundle.get("metadata", {}),
             )
 
-        # 运行仿真
         result = simulation_service.run_simulation(
             program,
             initial_state,
             forecast,
             policy_bundle=policy_obj,
+            plugin_bundle=PluginBundleConfig(**plugin_bundle) if plugin_bundle else None,
         )
 
-        return {
+        payload = {
             "program_id": result.program_id,
             "start_time": result.start_time.isoformat(),
             "end_time": result.end_time.isoformat(),
@@ -94,3 +83,8 @@ def setup_simulation_tools(
             "snapshot_count": len(result.snapshots),
             "decision_trace_steps": len(result.metadata.get("decision_trace", [])),
         }
+        if result.metadata.get("plugin_results"):
+            payload["plugin_results"] = result.metadata["plugin_results"]
+        if result.metadata.get("plugin_warnings"):
+            payload["plugin_warnings"] = result.metadata["plugin_warnings"]
+        return payload

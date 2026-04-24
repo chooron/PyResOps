@@ -50,7 +50,7 @@ Human / Python caller                    MCP client / agent
 2. MCP tools in `pyresops/tools/*.py` translate tool payloads into domain objects (e.g., `ForecastBundle`, `PolicyBundle`).
 3. Tool handlers call the same service layer used by direct Python callers (no separate execution engine).
 4. Results are returned as JSON-like dictionaries, including summaries such as levels, scores, and decision-trace counts.
-5. Rolling workflow tools (`optimize_flexible_release_plan`, `reassess_plan`, `replace_working_plan`, `finalize_plan`, `get_working_state`) coordinate candidate-plan lifecycle and repository persistence.
+5. Rolling workflow tools (`optimize_release_plan`, `reassess_plan`, `replace_working_plan`, `finalize_plan`, `get_working_state`) coordinate candidate-plan lifecycle and repository persistence.
 
 ## Key abstractions
 
@@ -105,3 +105,65 @@ tests/
 - Prefer **service-layer usage** (`pyresops.services`) for local scripts, notebooks, and embedded application logic.
 - Prefer **MCP tool usage** (`pyresops.server` + `pyresops.tools`) when integrating with LLM agents or external orchestrators that speak the MCP tool protocol.
 - Both paths converge on the same domain/core/services pipeline, so simulation and evaluation semantics remain consistent across interfaces.
+
+## Execution plugin framework
+
+The repository now carries two different extension layers with different responsibilities:
+
+- Legacy extension registry in `pyresops.plugins` for rule/constraint/metric-style additions.
+- Execution plugin framework in `pyresops.plugins` for model-side capabilities around the main dispatch chain.
+
+The execution framework is intentionally typed into a unified execution contract plus role-specific bases:
+
+- `ExecutionPluginBase.execute(context, config)`
+- `InputPluginBase`
+- `StepPluginBase`
+- `PostPluginBase`
+- `ReportPluginBase`
+
+Every plugin exposes structured metadata (`describe()`), explicit config validation, input validation, and a structured execution result carrying `payload`, `diagnostics`, `used_config`, `warnings`, and `metadata`.
+
+### Execution placement
+
+- Input plugins run before simulation or optimization and are allowed to replace or add the `inflow` forecast series.
+- Step plugins run inside `SimulationEngine` after the baseline outflow has been resolved and before hydraulics capacity clamping.
+- Post plugins run after simulation and add downstream consequence summaries to simulation metadata and MCP responses.
+- Execution order is controlled by explicit `PluginStage` values rather than registry order.
+
+### Registry and discovery
+
+- `ExecutionPluginRegistry` provides typed registration and lookup by `(plugin_kind, plugin_name)`.
+- `PluginManager` coordinates loading, resolution, execution, and summary packing.
+- MCP exposes plugin discovery and preview through:
+  - `list_plugins`
+  - `describe_plugin`
+  - `resolve_plugins_for_task`
+  - `preview_plugin`
+
+### Configuration and defaults
+
+Bootstrap YAML can now carry optional `execution.plugins` defaults. Bundle keys are strictly `input`, `step`, `post`, and `report`. These defaults are materialized through the provider layer and wired into `SimulationService` and `OptimizationService` by `pyresops.server`, while explicit `plugin_bundle` tool arguments still take precedence per call.
+
+## Provider layer
+
+PyResOps also includes a typed provider layer in `pyresops.providers`.
+
+Responsibilities:
+
+- `yaml/csv -> ReservoirBootstrap`
+- `yaml/csv -> ForecastBundle`
+- `yaml -> DispatchProgram`
+- `yaml -> ScenarioInputBundle`
+
+Core abstractions:
+
+- `ProviderPluginBase`
+- `ProviderRegistry`
+- `ProviderManager`
+- `DataRequest`
+- `ScenarioInputBundle`
+
+This cleanly separates:
+
+- `pyresops.providers`: runtime data materialization
+- `pyresops.plugins`: runtime execution extensions

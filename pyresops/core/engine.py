@@ -11,6 +11,7 @@ from ..domain.policy import PolicyBundle
 from ..domain.program import DispatchProgram, SwitchCondition
 from ..domain.reservoir import ReservoirSpec, ReservoirState
 from ..domain.result import SimulationResult, StateSnapshot
+from ..plugins import PluginBundleConfig, PluginManager, StepPluginContext
 from .hydraulics import HydraulicsCalculator
 from .orchestrator import DecisionOrchestrator
 
@@ -92,6 +93,8 @@ class SimulationEngine:
         modules: dict[str, OperationModule],
         policy_bundle: PolicyBundle | None = None,
         orchestrator: DecisionOrchestrator | None = None,
+        plugin_manager: PluginManager | None = None,
+        plugin_bundle: PluginBundleConfig | None = None,
     ) -> SimulationResult:
         """
         执行调度方案仿真.
@@ -127,6 +130,7 @@ class SimulationEngine:
         current_time = program.time_horizon.start
         end_time = program.time_horizon.end
         step_index = 0
+        step_runs: list[dict[str, Any]] = []
         if policy_bundle and orchestrator:
             orchestrator.reset()
 
@@ -174,6 +178,35 @@ class SimulationEngine:
                     "violations": [violation.to_legacy_dict() for violation in decision.violations],
                     "fallback_used": decision.fallback_used,
                 }
+
+            if plugin_manager and plugin_bundle and plugin_bundle.step is not None:
+                step_result = plugin_manager.execute_step(
+                    selection=plugin_bundle.step,
+                    context=StepPluginContext(
+                        step_index=step_index,
+                        state=step_state,
+                        inflow=float(inflow),
+                        baseline_outflow=float(outflow),
+                        active_module=current_module_type,
+                    ),
+                )
+                if step_result is None:
+                    continue
+                step_payload = step_result.payload
+                outflow = float(
+                    step_payload.get(
+                        "estimated_outflow",
+                        step_payload.get("outflow", outflow),
+                    )
+                )
+                packed_step = plugin_manager.pack_selection_result(
+                    selection=plugin_bundle.step,
+                    result=step_result,
+                )
+                packed_step["step_index"] = step_index
+                packed_step["timestamp"] = step_time.isoformat()
+                decision_metadata["step_plugin"] = packed_step
+                step_runs.append(packed_step)
 
             # 泄流能力约束校核
             _, adjusted_outflow = self.hydraulics.validate_outflow(step_state.level, outflow)
@@ -234,6 +267,13 @@ class SimulationEngine:
                     policy_bundle=policy_bundle,
                 )
             ]
+        if step_runs and plugin_bundle and plugin_bundle.step is not None and plugin_manager:
+            metadata.setdefault("plugin_results", {})
+            metadata["plugin_results"]["step"] = plugin_manager.build_stage_summary(
+                selection=plugin_bundle.step,
+                plugin_kind="step",
+                runs=step_runs,
+            )
 
         return SimulationResult(
             program_id=program.id,
