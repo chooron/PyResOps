@@ -11,6 +11,8 @@ dependencies = [
     "pandas>=2.0.0",
     "pyyaml>=6.0.2",
     "scipy>=1.10.0",
+    "agno>=2.6.5",
+    "openai>=2.35.1",
 ]
 
 [project.scripts]
@@ -42,6 +44,7 @@ packages = ["pyresops"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["experiments/legacy"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

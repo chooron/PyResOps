@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from pyresops.core import SimulationEngine
 from pyresops.domain.program import DispatchProgram, TimeHorizon, ModuleInstance
 from pyresops.modules import ConstantReleaseModule

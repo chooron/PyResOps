@@ -1,0 +1,170 @@
+name: paper_validation
+
+data:
+  root: data
+  flood_event_dir: data/flood_event
+  processed_flood_event_dir: data/processed/flood_event
+  quality_manifest: experiments/results/data_quality/event_quality_manifest.csv
+  predicted_event: data/2024072617_with_pred.csv
+
+output:
+  dir: experiments/results/paper_validation
+
+mcp:
+  transport: stdio
+  url: null
+  command: uv run python -m pyresops.server
+  reservoir_config_path: experiments/config/default_reservoir.yaml
+  connect_timeout_seconds: 30
+  call_timeout_seconds: 120
+  refresh_connection: false
+
+static_large:
+  workflow: static
+  event_source: all_processed_flood_events
+
+dynamic_representative:
+  workflow: dynamic
+  event_source: large_validation_dynamic
+  stage_offsets: [0, 3, 6, 9]
+  instructions:
+    0: Initial dispatch under the observed state.
+    3: Re-evaluate carry-over plan after 3h under the latest observed state.
+    6: Risk has increased; strengthen flood-control priority and lower target level by 0.20 m.
+    9: Re-evaluate under latest state; unfinished target remains instruction_status=in_progress.
+  target_adjustments_m:
+    0: 0.0
+    3: 0.0
+    6: -0.2
+    9: -0.1
+
+rolling_real_forecast:
+  workflow: rolling
+  rolling_event_paths:
+    - data/2024072617_with_pred.csv
+
+rolling_stress:
+  workflow: rolling
+  rolling_forecast_error_scenarios:
+    - event: 2024072617
+      pattern: perfect
+      forecast_error_type: perfect
+    - event: 2024072617
+      pattern: under-peak
+      forecast_error_type: under_peak
+    - event: 2024072617
+      pattern: over-peak
+      forecast_error_type: over_peak
+    - event: 2024072617
+      pattern: lag
+      forecast_error_type: lag
+    - event: 2024072617
+      pattern: lead
+      forecast_error_type: lead
+    - event: 2024072617
+      pattern: mixed
+      forecast_error_type: mixed
+
+static_ablation_sample:
+  workflow: static
+  events:
+    - 2009080920
+    - 2010052305
+    - 2011041623
+    - 2012022323
+    - 2024052720
+    - 2024072617
+
+dynamic_ablation_sample:
+  workflow: dynamic
+  events:
+    - 2010062002
+    - 2020070914
+    - 2024061623
+    - 2024072617
+  stage_offsets: [0, 3, 6, 9]
+  instructions:
+    0: Initial dispatch under the observed state.
+    3: Re-evaluate carry-over plan after 3h under the latest observed state.
+    6: Risk has increased; strengthen flood-control priority and lower target level by 0.20 m.
+    9: Re-evaluate under latest state; unfinished target remains instruction_status=in_progress.
+  target_adjustments_m:
+    0: 0.0
+    3: 0.0
+    6: -0.2
+    9: -0.1
+
+methods:
+  pyresops_direct:
+    method_level: L0
+    runner_kind: pyresops_direct
+  tools_only:
+    method_level: L1
+    runner_kind: tools_only
+  mimo_without_tools:
+    method_level: L2
+    runner_kind: mimo_without_tools
+  mimo_with_pyresops_tools:
+    method_level: L3
+    runner_kind: mimo_with_pyresops_tools
+  mimo_mcp_validator:
+    method_level: L4
+    runner_kind: true_mcp_skill
+  mimo_mcp_skill:
+    method_level: B4
+    runner_kind: true_mcp_skill
+
+phases:
+  data-freeze:
+    scenario_groups: []
+    methods: []
+  tools-baseline:
+    scenario_groups: [static_large, dynamic_representative, rolling_real_forecast, rolling_stress]
+    methods: [tools_only]
+  mimo-static:
+    scenario_groups: [static_large]
+    methods: [mimo_mcp_validator]
+  mimo-dynamic:
+    scenario_groups: [dynamic_representative]
+    methods: [mimo_mcp_validator]
+  mimo-rolling:
+    scenario_groups: [rolling_real_forecast]
+    methods: [mimo_mcp_validator]
+  rolling-stress:
+    scenario_groups: [rolling_stress]
+    methods: [mimo_mcp_validator]
+  mcp-skill-smoke:
+    scenario_groups: [static_ablation_sample, dynamic_ablation_sample, rolling_real_forecast]
+    methods: [mimo_mcp_skill]
+    smoke: true
+  mcp-skill-static:
+    scenario_groups: [static_large]
+    methods: [mimo_mcp_skill]
+  mcp-skill-dynamic:
+    scenario_groups: [dynamic_representative]
+    methods: [mimo_mcp_skill]
+  mcp-skill-rolling:
+    scenario_groups: [rolling_real_forecast]
+    methods: [mimo_mcp_skill]
+  mcp-skill-rolling-stress:
+    scenario_groups: [rolling_stress]
+    methods: [mimo_mcp_skill]
+  mcp-skill-all:
+    scenario_groups: [static_large, dynamic_representative, rolling_real_forecast]
+    methods: [mimo_mcp_skill]
+  l0-l4:
+    scenario_groups: [static_ablation_sample, dynamic_ablation_sample, rolling_real_forecast]
+    methods:
+      - pyresops_direct
+      - tools_only
+      - mimo_without_tools
+      - mimo_with_pyresops_tools
+      - mimo_mcp_validator
+  all:
+    scenario_groups: [static_large, dynamic_representative, rolling_real_forecast, rolling_stress]
+    methods:
+      - pyresops_direct
+      - tools_only
+      - mimo_without_tools
+      - mimo_with_pyresops_tools
+      - mimo_mcp_validator

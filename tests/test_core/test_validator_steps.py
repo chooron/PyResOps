@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from pyresops.core import ConstraintValidator
 from pyresops.domain.constraint import Constraint, ConstraintSet
 from pyresops.domain.result import SimulationResult, StateSnapshot

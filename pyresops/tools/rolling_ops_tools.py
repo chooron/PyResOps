@@ -13,7 +13,12 @@ from ..services.rolling_ops import RollingOpsService
 from .common import build_forecast_bundle_from_payload
 
 
-def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsService) -> None:
+def setup_rolling_ops_tools(
+    mcp_server: Any,
+    rolling_ops_service: RollingOpsService,
+    *,
+    optimize_tool_name: str = "optimize_release_plan",
+) -> None:
     """Setup rolling workflow MCP tools."""
 
     def _build_forecast_bundle(forecast_data: dict[str, Any]) -> ForecastBundle:
@@ -40,7 +45,6 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
             metadata=policy_data.get("metadata", {}),
         )
 
-    @mcp_server.tool()
     def optimize_release_plan(
         reservoir_id: str,
         context_id: str,
@@ -74,6 +78,9 @@ def setup_rolling_ops_tools(mcp_server: Any, rolling_ops_service: RollingOpsServ
             )
         except Exception as exc:
             return {"error": str(exc)}
+
+    optimize_release_plan.__name__ = optimize_tool_name
+    mcp_server.tool()(optimize_release_plan)
 
     @mcp_server.tool()
     def reassess_plan(

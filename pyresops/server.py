@@ -14,6 +14,7 @@ from .domain.reservoir import (
     LevelStorageCurve,
     ReservoirSpec,
 )
+from experiments.paper_validation.tooling import setup_paper_validation_mcp_tools
 from .plugins import PluginManager
 from .providers import ReservoirBootstrap, ReservoirYamlError, load_reservoir_bootstrap_from_yaml
 from .services import (
@@ -201,7 +202,12 @@ def register_standard_tools(mcp_server: Any, runtime: ServerRuntime) -> None:
         runtime.evaluation_service,
     )
     setup_plugin_tools(mcp_server, runtime.plugin_manager, runtime.snapshot_service)
-    setup_rolling_ops_tools(mcp_server, runtime.rolling_ops_service)
+    setup_rolling_ops_tools(
+        mcp_server,
+        runtime.rolling_ops_service,
+        optimize_tool_name="rolling_optimize_release_plan",
+    )
+    setup_paper_validation_mcp_tools(mcp_server, runtime)
 
 
 def create_server(

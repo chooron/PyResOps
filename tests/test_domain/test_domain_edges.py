@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyresops.domain.reservoir import LevelStorageCurve, DischargeCapacity, ReservoirSpec
+from pyresops.domain.reservoir import LevelStorageCurve, DischargeCapacity
 from pyresops.domain.forecast import ForecastSeries, ForecastBundle
 from pyresops.domain.constraint import Constraint, ConstraintSet
 from pyresops.domain.objective import Objective, ObjectiveSet

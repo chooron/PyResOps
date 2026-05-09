@@ -1,0 +1,33 @@
+data:
+  flood_event_dir: data/flood_event
+  predicted_event: data/2024072617_with_pred.csv
+  default_event: 2024072617
+
+reservoir:
+  flood_limit_level: 156.5
+  target_level_tolerance: 0.5
+
+static:
+  event_id: 2024072617
+  workflow_profile: static_s01_mcp_chain_v1
+
+dynamic:
+  event_id: 2024072617
+  instruction_offsets:
+    3: Operator tightens the target level after 3h; re-evaluate the plan.
+    6: Operator lowers the target level by 0.20 m after 6h for stronger flood-control priority.
+    9: Operator lowers the target level by 0.10 m after 9h under the latest observed state.
+  target_adjustments_m:
+    3: 0.0
+    6: -0.2
+    9: -0.1
+  target_level_tolerance: 0.1
+
+rolling:
+  event_path: data/2024072617_with_pred.csv
+  relative_error_trigger: 0.2
+  absolute_error_trigger_m3s: 150.0
+  high_level_margin_m: 0.5
+  min_remaining_horizon_hours: 9
+  manual_instruction_offsets:
+    6: Operator review at 6h.

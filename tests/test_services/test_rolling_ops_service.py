@@ -114,7 +114,7 @@ def test_finalize_plan_persists_append_only_history(
     repo = rolling_services["repository"]
     state = ss.create_initial_snapshot("res2", sample_reservoir_spec, 166.0, 7800.0)
 
-    first = rolling.optimize_release_plan(
+    rolling.optimize_release_plan(
         reservoir_id="res2",
         context_id="ctx3",
         forecast=_build_forecast(state.timestamp, base=7600.0),

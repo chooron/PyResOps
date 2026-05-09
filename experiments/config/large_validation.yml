@@ -1,0 +1,132 @@
+name: large_validation
+
+data:
+  root: data
+  flood_event_dir: data/flood_event
+  predicted_event: data/2024072617_with_pred.csv
+
+output:
+  dir: experiments/results/large_validation
+
+reservoir:
+  flood_limit_level: 156.5
+  target_level_tolerance: 0.1
+
+stress_or_safety_events:
+
+data_quality_blockers:
+  static_events:
+    2009080920:
+      reason: missing observed outflow values inside the workflow horizon
+      clean_success_denominator: false
+
+rolling:
+  relative_error_trigger: 0.2
+  absolute_error_trigger_m3s: 150.0
+  high_level_margin_m: 0.5
+  min_remaining_horizon_hours: 9
+  manual_instruction_offsets:
+    6: Operator review at 6h.
+
+s0:
+  methods:
+    - tools_only
+
+s1:
+  methods:
+    - tools_only
+    - l0_text_only
+    - l1_manual_only
+    - l2_agno_functions
+    - l3_mcp
+    - l4_mcp_validator
+  static_events:
+    - 2009080920
+    - 2010052305
+    - 2010062002
+    - 2011041623
+    - 2011061323
+    - 2012022323
+    - 2012030714
+    - 2012041314
+    - 2012051514
+    - 2012062402
+    - 2013051623
+    - 2013060217
+    - 2013061314
+    - 2013082211
+    - 2013083020
+    - 2013100711
+    - 2013121702
+    - 2019022120
+    - 2019043014
+    - 2019061323
+    - 2019062323
+    - 2019070517
+    - 2019071011
+    - 2019081008
+    - 2020070914
+    - 2021052114
+    - 2022032223
+    - 2022033117
+    - 2022060608
+    - 2022061020
+    - 2022061823
+    - 2022062023
+    - 2022113011
+    - 2023072808
+    - 2024052720
+    - 2024060202
+    - 2024061117
+    - 2024061220
+    - 2024061517
+    - 2024061623
+    - 2024072617
+
+s2:
+  methods:
+    - tools_only
+    - full_agent
+  dynamic_events:
+    - 2010062002
+    - 2011041623
+    - 2013060217
+    - 2019081008
+    - 2020070914
+    - 2022062023
+    - 2023072808
+    - 2024052720
+    - 2024061517
+    - 2024061623
+    - 2024072617
+  dynamic_stage_offsets: [0, 3, 6, 9]
+  dynamic_instructions:
+    0: Initial dispatch under the observed state.
+    3: Re-evaluate carry-over plan after 3h under the latest observed state.
+    6: Risk has increased; strengthen flood-control priority and lower target level by 0.20 m.
+    9: Re-evaluate under latest state; unfinished target remains instruction_status=in_progress.
+  dynamic_target_adjustments_m:
+    0: 0.0
+    3: 0.0
+    6: -0.2
+    9: -0.1
+
+s3:
+  methods:
+    - tools_only
+    - full_agent
+  rolling_event_paths:
+    - data/2024072617_with_pred.csv
+  rolling_forecast_error_scenarios:
+    - event: 2024072617
+      pattern: perfect
+    - event: 2024072617
+      pattern: under-peak
+    - event: 2024072617
+      pattern: over-peak
+    - event: 2024072617
+      pattern: lag
+    - event: 2024072617
+      pattern: lead
+    - event: 2024072617
+      pattern: mixed

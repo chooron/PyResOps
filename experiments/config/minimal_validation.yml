@@ -1,0 +1,78 @@
+name: minimal_validation
+
+data:
+  root: data
+  flood_event_dir: data/flood_event
+  predicted_event: data/2024072617_with_pred.csv
+
+output:
+  dir: experiments/results/minimal_validation
+
+reservoir:
+  flood_limit_level: 156.5
+  target_level_tolerance: 0.1
+
+rolling:
+  relative_error_trigger: 0.2
+  absolute_error_trigger_m3s: 150.0
+  high_level_margin_m: 0.5
+  min_remaining_horizon_hours: 9
+  manual_instruction_offsets:
+    6: Operator review at 6h.
+
+s0:
+  methods:
+    - tools_only
+  static_events:
+    - 2024072617
+  dynamic_events:
+    - 2024072617
+  dynamic_stage_offsets: [3, 6, 9]
+  dynamic_instructions:
+    3: Operator tightens the target level after 3h; re-evaluate the plan.
+    6: Operator lowers the target level by 0.20 m after 6h for stronger flood-control priority.
+    9: Operator lowers the target level by 0.10 m after 9h under the latest observed state.
+  dynamic_target_adjustments_m:
+    3: 0.0
+    6: -0.2
+    9: -0.1
+  rolling_event_paths:
+    - data/2024072617_with_pred.csv
+
+s1:
+  methods:
+    - tools_only
+    - full_agent
+  static_events:
+    - 2024072617
+    - 2010062002
+    - 2024061623
+    - 2024061517
+    - 2022062023
+    - 2009080920
+
+s2:
+  methods:
+    - tools_only
+    - full_agent
+  dynamic_events:
+    - 2024072617
+    - 2024061623
+    - 2022062023
+  dynamic_stage_offsets: [0, 3, 6, 9]
+  dynamic_instructions:
+    0: Initial dispatch under the observed state.
+    3: Re-evaluate carry-over plan after 3h under the latest observed state.
+    6: Risk has increased; strengthen flood-control priority and lower target level by 0.20 m.
+    9: Re-evaluate under latest state; unfinished target remains instruction_status=in_progress.
+  dynamic_target_adjustments_m:
+    0: 0.0
+    3: 0.0
+    6: -0.2
+    9: -0.1
+
+s3:
+  methods:
+    - tools_only
+    - full_agent
+  rolling_event_paths: auto

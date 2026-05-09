@@ -1,0 +1,26 @@
+reservoir:
+  id: tankan
+  name: Tankan Reservoir
+
+  characteristic_levels:
+    dead_level: 120.0
+    normal_level: 160.0
+    flood_limit_level: 156.5
+    design_flood_level: 165.87
+    check_flood_level: 169.15
+
+  capacities:
+    total_capacity: 41.9
+    flood_capacity: 3.5
+
+  curves:
+    level_storage:
+      levels: [120.0, 130.0, 140.0, 150.0, 156.5, 160.0, 161.5, 165.87, 169.15]
+      storages: [13.94, 18.14, 23.05, 28.72, 32.51, 35.2, 36.17, 39.37, 41.9]
+    discharge_capacity:
+      levels: [148.0, 150.0, 155.0, 160.0, 161.5, 165.87]
+      max_discharges: [0.0, 361.0, 2456.0, 5861.0, 6649.0, 11085.0]
+
+snapshot:
+  level: 150.0
+  inflow: 500.0

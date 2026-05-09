@@ -1,7 +1,5 @@
 """Tests for SQLite repository persistence."""
 
-import json
-
 import pytest
 
 from pyresops.storage import Repository

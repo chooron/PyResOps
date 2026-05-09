@@ -1,0 +1,36 @@
+default_profile: deepseek
+
+models:
+  deepseek:
+    provider: deepseek
+    model_id: deepseek-chat
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+
+  deepseek_r1:
+    provider: deepseek
+    model_id: deepseek-reasoner
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+
+  claude:
+    provider: anthropic
+    model_id: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+
+  openai:
+    provider: openai_like
+    model_id: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1
+
+  mimo_v25:
+    provider: openai_like
+    model_id: mimo-v2.5
+    api_key_env: MIMO_API_KEY
+    base_url: https://token-plan-cn.xiaomimimo.com/v1
+
+experiment:
+  output_dir: experiments/results/realdata
+  max_attempts: 1
+  show_tool_calls: true
