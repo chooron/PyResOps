@@ -39,6 +39,11 @@ METHOD_REGISTRY = {
         "L3",
         "mimo_with_pyresops_tools",
     ),
+    "mimo_mcp_no_skill": MethodRegistration(
+        "mimo_mcp_no_skill",
+        "B3",
+        "true_mcp_no_skill",
+    ),
     "mimo_mcp_validator": MethodRegistration(
         "mimo_mcp_validator",
         "L4",
@@ -190,8 +195,14 @@ class TextOnlyRunner(PaperAgentRunnerBase):
     def run_scenario(self, payload: dict[str, Any]) -> dict[str, Any]:
         run = self._run_agent(payload=payload, tools=[], system_prompt=_paper_system_prompt(payload, "L2"))
         decision, failure_reason = validate_structured_payload(run["payload_json"])
+        diagnostics = _ablation_payload_diagnostics(
+            raw_payload=run["payload_json"],
+            decision=decision,
+            schema_failure=failure_reason,
+            method_level="L2",
+        )
         if failure_reason is None and decision is not None:
-            return _decision_result_from_schema(
+            result = _decision_result_from_schema(
                 payload=payload,
                 decision=decision,
                 run=run,
@@ -200,13 +211,17 @@ class TextOnlyRunner(PaperAgentRunnerBase):
                 method_level="L2",
                 spec=self.spec,
             )
-        return _invalid_payload_result(
+            result.update(diagnostics)
+            return result
+        result = _invalid_payload_result(
             payload=payload,
             run=run,
             method="mimo_without_tools",
             model_id=self.model_id,
             failure_reason=failure_reason or "invalid_final_payload",
         )
+        result.update(diagnostics)
+        return result
 
 
 class LocalToolsRunner(PaperAgentRunnerBase):
@@ -365,7 +380,7 @@ def create_method_runner(
             method_id=method_id,
             method_level=registration.method_level,
         )
-    if registration.runner_kind == "true_mcp_skill":
+    if registration.runner_kind in {"true_mcp_skill", "true_mcp_no_skill"}:
         from experiments.paper_validation.config import load_paper_validation_config
         from experiments.paper_validation.mcp_skill_runner import TrueMcpSkillRunner
 
@@ -375,6 +390,7 @@ def create_method_runner(
             paper_config=load_paper_validation_config(),
             method_id=method_id,
             method_level=registration.method_level,
+            skill_enabled=registration.runner_kind == "true_mcp_skill",
         )
     raise ValueError(f"Unhandled runner kind: {registration.runner_kind}")
 
@@ -433,6 +449,7 @@ def _paper_system_prompt(payload: dict[str, Any], method_level: str, *, mcp_wrap
 
 
 def _paper_user_message(payload: dict[str, Any]) -> str:
+    command = payload.get("command_challenge") or {}
     return (
         f"event_id={payload['data_source']['event_id']}\n"
         f"workflow={payload['workflow_type']}\n"
@@ -442,6 +459,9 @@ def _paper_user_message(payload: dict[str, Any]) -> str:
         f"initial_inflow={payload['initial_inflow']}\n"
         f"time_step_hours={payload['time_step_hours']}\n"
         f"series_length={len(payload['benchmark_inflow_series_m3s'])}\n"
+        f"command_id={command.get('command_id', '')}\n"
+        f"command_type={command.get('command_type', '')}\n"
+        f"evaluation_focus={command.get('evaluation_focus', '')}\n"
         f"operator_instruction={payload.get('operator_instruction','')}\n"
     )
 
@@ -583,6 +603,41 @@ def _invalid_payload_result(
         "command_following_success": False,
         "infeasible_command_detected": False,
         "paper_decision_payload": None,
+    }
+
+
+def _ablation_payload_diagnostics(
+    *,
+    raw_payload: dict[str, Any] | None,
+    decision: ReservoirDecisionPayload | None,
+    schema_failure: str | None,
+    method_level: str,
+) -> dict[str, Any]:
+    required = {
+        "event_id",
+        "workflow",
+        "method_level",
+        "decision_type",
+        "target_release_summary",
+        "safety_status",
+        "hard_constraint_violation",
+        "instruction_status",
+        "explanation",
+    }
+    missing = sorted(required - set(raw_payload or {})) if isinstance(raw_payload, dict) else sorted(required)
+    target_summary = raw_payload.get("target_release_summary") if isinstance(raw_payload, dict) else None
+    target_release = target_summary.get("target_release_m3s") if isinstance(target_summary, dict) else None
+    executable = decision is not None and schema_failure is None and target_release is not None
+    evaluation_reference = decision.evaluation_reference if decision is not None else None
+    hallucinated_reference = bool(method_level == "L2" and evaluation_reference)
+    return {
+        "executable_plan": bool(executable),
+        "missing_required_field_count": len(missing),
+        "missing_required_fields": missing,
+        "missing_required_field": bool(missing),
+        "hallucinated_value": hallucinated_reference,
+        "hallucinated_value_count": 1 if hallucinated_reference else 0,
+        "evaluation_reference_valid": not hallucinated_reference and bool(evaluation_reference),
     }
 
 

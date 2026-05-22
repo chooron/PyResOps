@@ -11,6 +11,8 @@ prepare_event
 Rules:
 
 - Call `optimize_release_plan` exactly once.
+- For command challenge cases, translate the command into the single `optimize_release_plan` call; do not call `optimize_release_plan` twice to compare alternatives.
+- For conservative-release, peak-reduction, ambiguous, or multi-objective commands, use the single `evaluate_release_plan` result to explain the trade-off.
 - Call `simulate_release_plan` exactly once.
 - Call `evaluate_release_plan` exactly once.
 - Do not call optimize again after evaluation.

@@ -1,6 +1,6 @@
 data:
   flood_event_dir: data/flood_event
-  predicted_event: data/2024072617_with_pred.csv
+  predicted_event: data/withpred/2024072617.csv
   default_event: 2024072617
 
 reservoir:
@@ -24,7 +24,7 @@ dynamic:
   target_level_tolerance: 0.1
 
 rolling:
-  event_path: data/2024072617_with_pred.csv
+  event_path: data/withpred/2024072617.csv
   relative_error_trigger: 0.2
   absolute_error_trigger_m3s: 150.0
   high_level_margin_m: 0.5

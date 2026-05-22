@@ -1,0 +1,56 @@
+# Stage 3 Instruction-Conditioned Static Extension — LLM + MCP Evaluation
+# Separate from the main 462-row Stage 3 experiment.
+# Matrix: 41 events × 6 release families × 2 operation intervals = 492 rows
+
+model_profile: mimo_v25
+llm_config_path: experiments/config/llm_config.yml
+
+data:
+  root: data
+  event_list: experiments/config/stage1_event_list_41.txt
+
+output:
+  base_dir: experiments/results/stage3_instruction_static_mimo
+
+stage2_oracle_dir: experiments/results/stage2_instruction_static
+
+# MCP server connection
+mcp:
+  transport: stdio
+  command: "python -m pyresops.server"
+  connect_timeout_seconds: 30
+  call_timeout_seconds: 120
+  agent_timeout_seconds: 240
+  refresh_connection: true
+
+# Fail-closed oracle tolerances
+oracle_tolerances:
+  max_level_m: 0.5
+  terminal_deviation_m: 0.5
+  peak_reduction_rate: 0.05
+
+# Instruction-static matrix
+release_families:
+  - constant_release
+  - inflow_piecewise_constant_release
+  - inflow_linear_release
+  - storage_piecewise_constant_release
+  - storage_nonlinear_release
+  - joint_driven_release
+
+operation_intervals_h:
+  - 6
+  - 12
+
+# Tankeng flood limits (same as Stage 1/2)
+flood_limits:
+  meixun_m: 160.0
+  taixun_m: 156.5
+  absolute_ceiling_m: 161.5
+
+# Downstream routing (Muskingum, same as Stage 1/2)
+downstream:
+  K_h: 5
+  x: 0.2
+  dt_h: 3
+  safety_limit_m3s: 14000

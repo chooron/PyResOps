@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
+from experiments.data_adapters.real_events import RealEventDataAdapter
 from experiments.paper_validation.execution import (
     evaluate_release_plan_payload,
     optimize_release_plan_payload,
@@ -58,7 +60,7 @@ class PaperLocalToolBundleFactory:
             payload = optimize_release_plan_payload(
                 get_scenario(scenario_id),
                 spec,
-                requested_module_type=requested_module_type.strip() or None,
+                requested_module_type=_normalize_requested_module_type(requested_module_type),
                 use_prediction=get_scenario(scenario_id).get("workflow_type") == "rolling",
             )
             return _json(payload)
@@ -146,7 +148,7 @@ def setup_paper_validation_mcp_tools(mcp_server: Any, runtime) -> None:
         return optimize_release_plan_payload(
             scenario,
             spec,
-            requested_module_type=requested_module_type.strip() or None,
+            requested_module_type=_normalize_requested_module_type(requested_module_type),
             use_prediction=scenario.get("workflow_type") == "rolling",
         )
 
@@ -200,7 +202,11 @@ def setup_paper_validation_mcp_tools(mcp_server: Any, runtime) -> None:
             module_parameters=module_parameters,
             simulation_result=sim_payload["simulation_result"],
         )
-        return eval_payload["summary"]
+        summary = dict(eval_payload["summary"])
+        # Expose reference_id so the LLM can copy it into evaluation_reference
+        scenario_id = str(scenario.get("id") or scenario.get("stage_id") or "")
+        summary["reference_id"] = f"evaluate_release_plan::{scenario_id}"
+        return summary
 
     @mcp_server.tool()
     def validate_decision_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -287,7 +293,62 @@ def _normalize_mcp_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
     """Restore Python types lost across JSON MCP transport."""
 
     normalized = dict(scenario)
+    if "benchmark_inflow_series_m3s" not in normalized:
+        normalized = _hydrate_compact_mcp_scenario(normalized)
     start_time = normalized.get("start_time")
     if isinstance(start_time, str):
         normalized["start_time"] = datetime.fromisoformat(start_time)
     return normalized
+
+
+def _hydrate_compact_mcp_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
+    """Rebuild omitted time-series fields from the scenario data source."""
+
+    data_source = scenario.get("data_source") or {}
+    source_path = data_source.get("path") or data_source.get("processed_path") or data_source.get("raw_path")
+    event_id = data_source.get("event_id") or scenario.get("reproducibility", {}).get("data_event_id")
+    if not source_path and not event_id:
+        return scenario
+
+    try:
+        adapter = RealEventDataAdapter()
+        path = Path(str(source_path)) if source_path else None
+        uses_prediction = bool(scenario.get("uses_prediction") or data_source.get("uses_prediction"))
+        if path is not None and (uses_prediction or "predict" in path.name or "with_pred" in path.name or "wrongtest" in path.name):
+            event = adapter.load_predicted_event(path)
+        else:
+            event = adapter.load_event(str(event_id or path), prefer_processed=bool(data_source.get("uses_processed_data", True)))
+        hydrated = adapter.to_payload(
+            event,
+            workflow_type=str(scenario.get("workflow_type") or "static"),
+            scenario_id=str(scenario.get("id") or ""),
+            stage_offset_hours=int(scenario.get("stage_offset_hours") or 0),
+            operator_instruction=str(scenario.get("operator_instruction") or ""),
+            carry_over_plan=scenario.get("carry_over_plan"),
+            target_level=float(scenario["target_level"]) if scenario.get("target_level") is not None else None,
+            target_level_tolerance=(
+                float(scenario["target_level_tolerance"])
+                if scenario.get("target_level_tolerance") is not None
+                else None
+            ),
+            agent_workflow_profile=scenario.get("agent_workflow_profile"),
+        )
+    except Exception:
+        return scenario
+
+    for key, value in scenario.items():
+        if key not in {
+            "benchmark_inflow_series_m3s",
+            "benchmark_observed_outflow_series_m3s",
+            "benchmark_precipitation_series_mm",
+            "benchmark_predicted_inflow_series_m3s",
+        }:
+            hydrated[key] = value
+    return hydrated
+
+
+def _normalize_requested_module_type(value: str | None) -> str | None:
+    requested = str(value or "").strip()
+    if not requested:
+        return None
+    return requested if requested in ALLOWED_BASE_RELEASE_MODULE_TYPES else None

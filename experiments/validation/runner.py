@@ -222,6 +222,8 @@ def _build_workflow(
             absolute_error_trigger_m3s=float(rolling.get("absolute_error_trigger_m3s", 150.0)),
             high_level_margin_m=float(rolling.get("high_level_margin_m", 0.5)),
             min_remaining_horizon_hours=int(rolling.get("min_remaining_horizon_hours", 9)),
+            check_interval_hours=int(rolling.get("check_interval_hours", 3)),
+            scheduled_check_replan=bool(rolling.get("scheduled_check_replan", False)),
         )
         manual_offsets = {
             int(offset): str(text)

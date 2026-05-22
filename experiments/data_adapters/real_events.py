@@ -181,7 +181,11 @@ class RealEventDataAdapter:
         )
 
     def load_predicted_event(self, path: str | Path | None = None) -> FloodEventData:
-        resolved = Path(path) if path is not None else self.data_root / "2024072617_with_pred.csv"
+        resolved = Path(path) if path is not None else self.data_root / "withpred" / "2024072617.csv"
+        if not resolved.exists() and resolved.name == "2024072617_with_pred.csv":
+            fallback = self.data_root / "withpred" / "2024072617.csv"
+            if fallback.exists():
+                resolved = fallback
         frame = self._read_csv(resolved)
         self._validate_columns(resolved, frame, required=(*REQUIRED_COLUMNS, PREDICT_COLUMN))
         records = self._records_from_frame(frame, include_predict=True)

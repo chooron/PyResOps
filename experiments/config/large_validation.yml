@@ -3,7 +3,7 @@ name: large_validation
 data:
   root: data
   flood_event_dir: data/flood_event
-  predicted_event: data/2024072617_with_pred.csv
+  predicted_event: data/withpred/2024072617.csv
 
 output:
   dir: experiments/results/large_validation
@@ -116,7 +116,7 @@ s3:
     - tools_only
     - full_agent
   rolling_event_paths:
-    - data/2024072617_with_pred.csv
+    - data/withpred/2024072617.csv
   rolling_forecast_error_scenarios:
     - event: 2024072617
       pattern: perfect

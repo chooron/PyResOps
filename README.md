@@ -1,45 +1,117 @@
-# pyresops
+# PyResOps
 
-`pyresops` is a modular reservoir operation and dispatch package for single-reservoir scheduling scenarios.
-It provides:
+**English** | [中文](README-zh.md)
 
-- simulation and evaluation of dispatch programs
-- rule/constraint/metric extension points
-- execution plugins for inflow generation, step-side process models, and post-simulation impact models
-- a FastMCP server surface for tool-driven orchestration
+PyResOps is a Python framework for single-reservoir operation scheduling. It supports
+dispatch-program modelling, simulation, optimization, evaluation, plugin execution, and
+tool-driven LLM/MCP validation workflows.
 
-The package is now in a good state for local installation and internal use as a reusable Python package.
-It is strongest as an engineering framework and scenario execution kernel. It is not yet a production-grade forecasting system by itself.
+The central design rule is simple: an LLM must not invent reservoir decisions as free text.
+Operational decisions have to become executable dispatch programs, pass structured schema
+validation, run through simulation and evaluation, and leave traceable evidence. If a required
+tool is missing, the tool order is wrong, the output cannot be trusted, or a hard constraint is
+violated, the workflow fails closed instead of treating natural-language text as a valid result.
 
-## What Is Included
+## What This Repository Contains
 
-- `pyresops.core`
-  - simulation engine
-  - hydraulics checks
-  - decision orchestration
-- `pyresops.services`
-  - program creation
-  - simulation
-  - evaluation
-  - rolling operations workflow
-- `pyresops.rules`
-  - built-in and custom rule evaluators
-- `pyresops.constraints`
-  - built-in and custom constraints
-- `pyresops.metrics`
-  - built-in and custom evaluation metrics
-- `pyresops.plugins`
-  - execution plugin framework
-  - built-in plugins:
-    - `simple_rainfall_runoff`
-    - `gate_release_calculator`
-    - `muskingum_routing`
-- `pyresops.server`
-  - packaged FastMCP server
+- `pyresops`: the reusable reservoir-operation core, including domain models, simulation,
+  optimization, evaluation, rules, constraints, plugins, persistence, FastMCP tools, and Agno
+  agent integration.
+- `experiments`: research and paper-validation workflows built on real flood-event CSV data,
+  including static, dynamic, and rolling operation scenarios.
+- `tests`: unit and integration tests for the core, services, plugins, modules, constraints,
+  providers, and experiment workflows.
+- `docs`: architecture notes, examples, and paper-oriented documentation.
+
+The repository is intended for engineering research and experiment reproducibility. It is not a
+drop-in production hydrological forecasting system and does not replace site-specific reservoir
+calibration, operating authority, or formal safety review.
+
+## Main Capabilities
+
+- Single-reservoir simulation based on water balance and discharge-capacity curves.
+- Executable dispatch programs instead of plain-text release suggestions.
+- Six supported release-module families aligned with the paper taxonomy.
+- Rule, constraint, metric, provider, and execution-plugin extension points.
+- Rolling operation state management with candidate, working, and finalized plans.
+- FastMCP server exposing reservoir, program, simulation, evaluation, optimization, plugin, and
+  rolling-operation tools.
+- Agno runtime for constrained tool-use agents with JSON payload validation and tool-trace checks.
+- Real-data validation workflows for static, dynamic, and rolling operation experiments.
+- Paper-validation pipelines for ablation, command-challenge, MCP-skill, gate-checking, and table
+  export experiments.
+
+## Design Principles
+
+### Tool-first decisions
+
+Every operational decision should be executable, simulatable, and evaluable. A valid decision is a
+`DispatchProgram` plus supporting metadata and evidence, not only a textual recommendation.
+
+### Explicit boundaries
+
+Core engineering logic lives in `pyresops`. Research protocols, scenario expansion, paper phases,
+and result export live in `experiments`. This keeps the core reusable while allowing the research
+layer to evolve.
+
+### Structured data contracts
+
+Reservoir states, forecasts, dispatch programs, policy bundles, evaluation results, compiled
+dispatch contracts, workflow stages, and MCP payloads are represented with typed models or explicit
+schemas. Invalid or unparsable model output is treated as failure.
+
+### Hard constraints before instructions
+
+Safety constraints are evaluated separately from operator-instruction progress. A target may remain
+`in_progress`, but hard safety violations, invalid tool chains, or untrusted tool results cause
+failure.
+
+### Real data with visible quality labels
+
+Experiment workflows use real flood-event CSV files. Data quality is labelled explicitly, for
+example `strict_clean`, `repaired_executable`, or `diagnostic_only`, rather than hidden behind
+preprocessing.
+
+## Repository Layout
+
+```text
+pyresops/
+  domain/        Reservoir, forecast, program, module, policy, result, rule, constraint,
+                 objective, and dispatch-contract domain objects.
+  core/          Simulation engine, hydraulics, orchestration, validation, action resolution,
+                 scenario time contracts, and family optimization.
+  modules/       Supported release-module families.
+  services/      Snapshot, program, simulation, optimization, evaluation, explanation,
+                 dispatch-contract compiler, and rolling-operation services.
+  constraints/   Constraint SPI, registry, loader, factory, and built-in constraints.
+  rules/         Rule SPI, expression evaluation, registry, and action normalization.
+  metrics/       Metric SPI and built-in evaluation metrics.
+  plugins/       Execution-plugin framework and built-in input, step, and post plugins.
+  providers/     YAML/CSV materialization for reservoirs, forecasts, programs, and scenarios.
+  tools/         FastMCP tool registration modules.
+  agents/        Agno model config, prompts, runtime, runner, and tool bundles.
+  storage/       SQLite repository for programs, results, snapshots, events, finalized plans,
+                 and decision traces.
+  server.py      FastMCP server assembly.
+  cli.py         `pyresops-server` command entry point.
+
+experiments/
+  config/              Reservoir, model, scenario, and validation YAML files.
+  data_adapters/       Real flood-event loading and preprocessing.
+  workflows/           Static, dynamic, and rolling workflow contracts.
+  validation/          Scenario expansion, execution, JSONL records, CSV/Markdown summaries.
+  paper_validation/    Paper-phase runners, MCP-skill runners, gates, command challenges,
+                       data freeze, failure taxonomy, and table export.
+  stage1/ stage2/ stage3/
+                       Staged experiment implementations.
+  run_*.py             Experiment entry-point scripts.
+```
 
 ## Installation
 
-### Editable install for local development
+PyResOps requires Python 3.11 or newer.
+
+Install locally in editable mode:
 
 ```bash
 pip install -e .
@@ -51,52 +123,53 @@ Or with `uv`:
 uv pip install -e .
 ```
 
-### Build a local wheel
+Install development dependencies:
+
+```bash
+uv sync --group dev
+```
+
+Build a wheel:
 
 ```bash
 uv build
 ```
 
-This produces artifacts under `dist/`.
+## Start the MCP Server
 
-### Install from the built wheel
-
-```bash
-pip install dist/pyresops-0.1.0-py3-none-any.whl
-```
-
-## Local CLI Usage
-
-After installation, the package provides a console command:
+After installation:
 
 ```bash
 pyresops-server
 ```
 
-This launches the bundled FastMCP server.
-
-You can still run it as a module:
+Or:
 
 ```bash
 python -m pyresops.server
 ```
 
-## Python Usage
+Use a specific reservoir configuration:
 
-### Minimal simulation example
+```powershell
+$env:PYRESOPS_RESERVOIR_CONFIG="E:\PyCode\PyResOps\experiments\config\default_reservoir.yaml"
+pyresops-server
+```
+
+## Minimal Python Example
 
 ```python
 from datetime import datetime
 
-from pyresops.domain import TimeHorizon
-from pyresops.services import ProgramService, SimulationService, SnapshotService
 from pyresops.domain.forecast import ForecastBundle, ForecastSeries
+from pyresops.domain.program import TimeHorizon
 from pyresops.domain.reservoir import (
+    DischargeCapacity,
+    LevelStorageCurve,
     ReservoirSpec,
     ReservoirState,
-    LevelStorageCurve,
-    DischargeCapacity,
 )
+from pyresops.services import ProgramService, SimulationService
 
 spec = ReservoirSpec(
     id="demo",
@@ -121,20 +194,17 @@ spec = ReservoirSpec(
 program_service = ProgramService()
 simulation_service = SimulationService(spec, program_service.get_module_registry())
 
+start = datetime(2024, 7, 1, 0, 0, 0)
 program = program_service.create_program(
     name="demo_program",
-    time_horizon=TimeHorizon(
-        start=datetime(2024, 7, 1, 0, 0, 0),
-        end=datetime(2024, 7, 1, 3, 0, 0),
-        time_step=3600,
-    ),
+    time_horizon=TimeHorizon(start=start, end=start.replace(hour=3), time_step=3600),
     module_configs=[
         {"module_type": "constant_release", "parameters": {"target_release": 800.0}},
     ],
 )
 
 initial_state = ReservoirState(
-    timestamp=datetime(2024, 7, 1, 0, 0, 0),
+    timestamp=start,
     level=165.0,
     storage=30.0,
     inflow=800.0,
@@ -142,7 +212,7 @@ initial_state = ReservoirState(
 )
 
 forecast = ForecastBundle(
-    forecast_time=datetime(2024, 7, 1, 0, 0, 0),
+    forecast_time=start,
     series=[
         ForecastSeries(
             variable="inflow",
@@ -162,207 +232,84 @@ result = simulation_service.run_simulation(program, initial_state, forecast)
 print(result.max_level, result.avg_outflow)
 ```
 
-## Execution Plugins
+## Experiment Commands
 
-The formal execution plugin surface is under `pyresops.plugins`.
-
-Main classes:
-
-- `ExecutionPluginBase`
-- `InputPluginBase`
-- `StepPluginBase`
-- `PostPluginBase`
-- `ReportPluginBase`
-- `ExecutionPluginRegistry`
-- `PluginManager`
-- `PluginStage`
-
-Official bundle keys are:
-
-- `input`
-- `step`
-- `post`
-- `report`
-
-### Example plugin skeleton
-
-```python
-from pyresops.plugins import (
-    InputPluginBase,
-    InputPluginContext,
-    PluginExecutionResult,
-    PluginStage,
-)
-
-
-class MyInputPlugin(InputPluginBase):
-    plugin_name = "my_input"
-    stage = PluginStage.INFLOW_GENERATION
-    summary = "My inflow generator"
-
-    def validate_config(self, config: dict[str, object]) -> dict[str, object]:
-        return dict(config)
-
-    def validate_inputs(self, context: InputPluginContext) -> None:
-        return None
-
-    def execute(self, context: InputPluginContext, config) -> PluginExecutionResult:
-        return PluginExecutionResult(payload={"generated_series": {...}})
-```
-
-## Provider Layer
-
-`pyresops` also includes a provider-based materialization layer under `pyresops.providers`.
-
-This layer is for loading and building typed inputs at runtime instead of manually constructing
-every domain object in code.
-
-Built-in targets include:
-
-- `reservoir_bootstrap`
-- `forecast_bundle`
-- `dispatch_program`
-- `scenario_input_bundle`
-
-Built-in providers include:
-
-- `reservoir_bootstrap_yaml`
-- `forecast_yaml`
-- `forecast_csv`
-- `dispatch_program_yaml`
-- `scenario_input_bundle_yaml`
-
-Main classes:
-
-- `DataRequest`
-- `ProviderRegistry`
-- `ProviderManager`
-- `ScenarioInputBundle`
-
-### Minimal provider example
-
-```python
-from pyresops.providers import (
-    DataRequest,
-    ProviderManager,
-    ProviderRegistry,
-    register_builtin_providers,
-)
-
-registry = ProviderRegistry()
-register_builtin_providers(registry)
-manager = ProviderManager(registry)
-
-bootstrap = manager.ensure(
-    DataRequest(
-        target_type="reservoir_bootstrap",
-        source_hint="yaml",
-        locator="configs/default_reservoir.yaml",
-    )
-)
-```
-
-### Scenario bundle manifest example
-
-```yaml
-reservoir:
-  source: yaml
-  path: reservoir.yaml
-snapshot: bootstrap_default
-forecast:
-  source: yaml
-  path: forecast.yaml
-program:
-  source: yaml
-  path: program.yaml
-plugin_bundle:
-  input:
-    name: simple_rainfall_runoff
-    config:
-      runoff_coefficient: 0.6
-      lag_steps: 1
-```
-
-Load it in one call:
-
-```python
-bundle = manager.ensure(
-    DataRequest(
-        target_type="scenario_input_bundle",
-        source_hint="yaml",
-        locator="scenario.yaml",
-    )
-)
-```
-
-## MCP Surface
-
-The packaged FastMCP server exposes tools including:
-
-- snapshot and program tools
-- simulation and evaluation tools
-- rolling operations tools
-- plugin discovery tools:
-  - `list_plugins`
-  - `describe_plugin`
-  - `resolve_plugins_for_task`
-  - `preview_plugin`
-
-## Configuration and Materialization
-
-Reservoir bootstrap YAML is supported through:
-
-- `pyresops.providers.load_reservoir_bootstrap_from_yaml`
-
-The server loads configuration in this order:
-
-1. `PYRESOPS_RESERVOIR_CONFIG`
-2. `configs/default_reservoir.yaml`
-3. bundled demo fallback
-
-Example:
+Run real-data workflow contract checks without calling an Agno model:
 
 ```bash
-set PYRESOPS_RESERVOIR_CONFIG=E:\path\to\reservoir.yaml
-pyresops-server
+uv run python experiments/run_realdata_workflows.py --contract-only --workflow all
 ```
 
-Execution plugin bundle config is now exposed from `pyresops.plugins`:
+Run a real-data workflow with a model profile:
 
-- `PluginSelectionConfig`
-- `PluginBundleConfig`
-- `ExecutionConfig`
+```bash
+uv run python experiments/run_realdata_workflows.py --workflow static --model-profile deepseek
+```
 
-## Testing
+Run paper-validation phases:
 
-Run the main regression suite with:
+```bash
+uv run python experiments/run_paper_validation.py --phase data-freeze
+uv run python experiments/run_paper_validation.py --phase mcp-skill-smoke --model-profile deepseek_v4_pro --limit-events 1
+uv run python experiments/run_paper_validation.py --phase component-ablation --model-profile deepseek_v4_pro
+uv run python experiments/run_paper_validation.py --phase command-challenge --model-profile deepseek_v4_pro
+```
+
+Check paper-validation gates:
+
+```bash
+uv run python experiments/check_paper_validation_gates.py --latest
+```
+
+Model calls require provider configuration and API keys through local config or environment
+variables, for example `DEEPSEEK_API_KEY`. Do not commit local provider secrets.
+
+## Data Policy
+
+The repository keeps only a small representative sample dataset under version control. Bulk real
+event data, derived data, logs, JSONL traces, generated figures, and local provider credentials are
+ignored by `.gitignore`.
+
+## Tests and Lint
+
+Run the full test suite:
 
 ```bash
 uv run pytest tests -q
 ```
 
-Lint:
+Run focused tests:
 
 ```bash
-uv run ruff check pyresops tests
+uv run pytest tests/test_experiments/test_paper_validation.py -q
+uv run pytest tests/test_services -q
+uv run pytest tests/test_modules -q
 ```
 
-## Current Maturity
+Run lint:
 
-`pyresops` is sufficiently complete for:
+```bash
+uv run ruff check pyresops experiments tests
+```
 
-- local package installation
-- internal scenario execution
-- plugin/rule-based dispatch experiments
-- MCP-driven tool workflows
+## Current Maturity and Boundaries
 
-It is not yet sufficient to claim:
+PyResOps is suitable for:
 
-- production-grade forecast quality
-- site-calibrated hydrologic realism by default
-- comprehensive operational coverage for every reservoir context
+- local package development;
+- deterministic single-reservoir dispatch simulation;
+- rule, constraint, metric, and plugin experiments;
+- parameter optimization over supported release-module families;
+- static, dynamic, and rolling real-data workflow validation;
+- MCP-driven agent tool-flow validation;
+- paper ablation, command-challenge, and gate-checking experiments.
 
-Those depend on project-side configuration, data quality, and custom plugins.
+PyResOps should not be presented as:
+
+- a production hydrological forecasting system;
+- a fully calibrated hydrodynamic model for arbitrary reservoirs;
+- a replacement for reservoir-operation authority;
+- proof that an LLM decision is safe without tool-based validation.
 
 ## License
 

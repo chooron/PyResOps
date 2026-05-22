@@ -5,7 +5,7 @@ data:
   flood_event_dir: data/flood_event
   processed_flood_event_dir: data/processed/flood_event
   quality_manifest: experiments/results/data_quality/event_quality_manifest.csv
-  predicted_event: data/2024072617_with_pred.csv
+  predicted_event: data/withpred/2024072617.csv
 
 output:
   dir: experiments/results/paper_validation
@@ -17,6 +17,7 @@ mcp:
   reservoir_config_path: experiments/config/default_reservoir.yaml
   connect_timeout_seconds: 30
   call_timeout_seconds: 120
+  agent_timeout_seconds: 240
   refresh_connection: false
 
 static_large:
@@ -40,8 +41,25 @@ dynamic_representative:
 
 rolling_real_forecast:
   workflow: rolling
+  relative_error_trigger: 0.30
+  absolute_error_trigger_m3s: 300.0
+  high_level_margin_m: 0.5
+  min_remaining_horizon_hours: 12
+  check_interval_hours: 12
+  scheduled_check_replan: true
+  continue_on_stage_failure: true
+  manual_instruction_offsets: {}
   rolling_event_paths:
-    - data/2024072617_with_pred.csv
+    - data/withpred/2012062402.csv
+    - data/withpred/2013100711.csv
+    - data/withpred/2019070517.csv
+    - data/withpred/2019071011.csv
+    - data/withpred/2021052114.csv
+    - data/withpred/2022062023.csv
+    - data/withpred/2024061220.csv
+    - data/withpred/2024061517.csv
+    - data/withpred/2024061623.csv
+    - data/withpred/2024072617.csv
 
 rolling_stress:
   workflow: rolling
@@ -94,6 +112,100 @@ dynamic_ablation_sample:
     6: -0.2
     9: -0.1
 
+component_static_sample:
+  workflow: static
+  events:
+    - 2009080920
+    - 2010052305
+    - 2010062002
+    - 2011041623
+    - 2011061323
+    - 2012022323
+    - 2012030714
+    - 2020070914
+    - 2024052720
+    - 2024072617
+
+component_dynamic_sample:
+  workflow: dynamic
+  events:
+    - 2010062002
+    - 2013060217
+    - 2020070914
+    - 2024061623
+    - 2024072617
+  stage_offsets: [0, 3, 6, 9]
+  instructions:
+    0: Initial dispatch under the observed state.
+    3: Re-evaluate carry-over plan after 3h under the latest observed state.
+    6: Risk has increased; strengthen flood-control priority and lower target level by 0.20 m.
+    9: Re-evaluate under latest state; unfinished target remains instruction_status=in_progress.
+  target_adjustments_m:
+    0: 0.0
+    3: 0.0
+    6: -0.2
+    9: -0.1
+
+component_rolling_real:
+  workflow: rolling
+  rolling_event_paths:
+    - data/withpred/2024072617.csv
+
+command_challenge:
+  workflow: mixed
+  config_path: experiments/config/command_challenge.yml
+
+deepseek_static_subset:
+  workflow: static
+  events:
+    - 2009080920
+    - 2010052305
+    - 2010062002
+    - 2011041623
+    - 2011061323
+    - 2012022323
+    - 2012030714
+    - 2020070914
+    - 2024052720
+    - 2024072617
+
+deepseek_dynamic_subset:
+  workflow: dynamic
+  events:
+    - 2010062002
+    - 2013060217
+    - 2020070914
+    - 2024061623
+    - 2024072617
+  stage_offsets: [0, 3, 6, 9]
+  instructions:
+    0: Initial dispatch under the observed state.
+    3: Re-evaluate carry-over plan after 3h under the latest observed state.
+    6: Risk has increased; strengthen flood-control priority and lower target level by 0.20 m.
+    9: Re-evaluate under latest state; unfinished target remains instruction_status=in_progress.
+  target_adjustments_m:
+    0: 0.0
+    3: 0.0
+    6: -0.2
+    9: -0.1
+
+deepseek_rolling_subset:
+  workflow: rolling
+  rolling_event_paths:
+    - data/withpred/2024072617.csv
+  forced_stage_offsets: [0, 3, 6, 9, 12, 15, 18, 21, 24, 27]
+  trigger_reasons:
+    0: scheduled_update
+    3: relative_forecast_error
+    6: manual_instruction
+    9: scheduled_update
+    12: relative_forecast_error
+    15: manual_instruction
+    18: scheduled_update
+    21: relative_forecast_error
+    24: scheduled_update
+    27: scheduled_update
+
 methods:
   pyresops_direct:
     method_level: L0
@@ -107,6 +219,9 @@ methods:
   mimo_with_pyresops_tools:
     method_level: L3
     runner_kind: mimo_with_pyresops_tools
+  mimo_mcp_no_skill:
+    method_level: B3
+    runner_kind: true_mcp_no_skill
   mimo_mcp_validator:
     method_level: L4
     runner_kind: true_mcp_skill
@@ -152,6 +267,28 @@ phases:
   mcp-skill-all:
     scenario_groups: [static_large, dynamic_representative, rolling_real_forecast]
     methods: [mimo_mcp_skill]
+  freeze-mcp-skill-v1:
+    scenario_groups: []
+    methods: []
+  component-ablation-smoke:
+    scenario_groups: [component_static_sample, component_dynamic_sample, component_rolling_real]
+    methods: [mimo_without_tools, mimo_mcp_no_skill, mimo_mcp_skill]
+    smoke: true
+  component-ablation:
+    scenario_groups: [component_static_sample, component_dynamic_sample, component_rolling_real]
+    methods: [mimo_without_tools, mimo_mcp_no_skill, mimo_mcp_skill]
+  command-challenge:
+    scenario_groups: [command_challenge]
+    methods: [mimo_without_tools, mimo_mcp_no_skill, mimo_mcp_skill]
+  deepseek-mcp-skill-subset:
+    scenario_groups: [deepseek_static_subset, deepseek_dynamic_subset, deepseek_rolling_subset, command_challenge]
+    methods: [mimo_mcp_skill]
+  cross-model-mcp-skill-subset:
+    scenario_groups: [deepseek_static_subset, deepseek_dynamic_subset, deepseek_rolling_subset, command_challenge]
+    methods: [mimo_mcp_skill]
+  payload-repair-audit:
+    scenario_groups: []
+    methods: []
   l0-l4:
     scenario_groups: [static_ablation_sample, dynamic_ablation_sample, rolling_real_forecast]
     methods:
@@ -168,3 +305,9 @@ phases:
       - mimo_without_tools
       - mimo_with_pyresops_tools
       - mimo_mcp_validator
+  forecast-error-wrongtest-stage2:
+    scenario_groups: [wrongtest_forecast_error]
+    methods: [pyresops_direct]
+  forecast-error-wrongtest-stage3:
+    scenario_groups: [wrongtest_forecast_error]
+    methods: [mimo_mcp_skill]

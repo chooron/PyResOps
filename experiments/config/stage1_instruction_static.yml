@@ -1,0 +1,33 @@
+# Instruction-conditioned static extension — Tankeng Reservoir
+# Extension type: instruction_conditioned_static
+# Matrix: 41 events x 6 release families x 2 operation intervals = 492 records
+
+extension_type: instruction_conditioned_static
+
+data:
+  root: data
+  event_list: experiments/config/stage1_event_list_41.txt
+
+release_families:
+  - constant_release
+  - inflow_piecewise_constant_release
+  - inflow_linear_release
+  - storage_piecewise_constant_release
+  - storage_nonlinear_release
+  - joint_driven_release
+
+# Operation intervals in hours (3h data resolution; 6h = 2 steps, 12h = 4 steps)
+operation_intervals_h: [6, 12]
+
+# Tankeng flood-limit levels (m)
+flood_limits:
+  meixun: 160.0      # Apr 15 – Jun 30
+  taixun: 156.5      # Jul 16 – Oct 15
+  absolute_ceiling: 161.5
+
+# Tankeng downstream routing — Muskingum method to Hecheng station
+downstream:
+  muskingum_k_h: 5
+  muskingum_x: 0.2
+  dt_h: 3
+  safety_limit_m3s: 14000

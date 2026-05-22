@@ -1,17 +1,82 @@
-default_profile: deepseek
+default_profile: deepseek_v4_pro
 
 models:
+  deepseek_v4_pro:
+    provider: openai_like
+    model_id: deepseek-v4-pro
+    api_key_env: DEEPSEEK_API_KEY
+    base_url_env: DEEPSEEK_BASE_URL
+    default_base_url: https://api.deepseek.com
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    extra_body:
+      thinking:
+        type: disabled
+    notes: DeepSeek OpenAI-compatible API model.
+
+  deepseek_v4_flash:
+    provider: openai_like
+    model_id: deepseek-v4-flash
+    api_key_env: DEEPSEEK_API_KEY
+    base_url_env: DEEPSEEK_BASE_URL
+    default_base_url: https://api.deepseek.com
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    extra_body:
+      thinking:
+        type: disabled
+    notes: DeepSeek OpenAI-compatible API fallback model.
+
+  gemini_3_1_flash_lite:
+    provider: gemini_native
+    model_id: gemini-3.1-flash-lite
+    api_key_env: GEMINI_API_KEY
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    notes: Gemini native SDK flash-lite model for cost-controlled cross-model validation.
+
+  minimax_m2_5_free:
+    provider: openai_like
+    model_id: MiniMax-M2.5
+    api_key_env: MINMAX_API_KEY
+    base_url_env: MINMAX_BASE_URL
+    default_base_url: https://api.penguinsaichat.dpdns.org/v1
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    notes: MiniMax M2.5 through the PenguinSaiChat OpenAI-compatible gateway.
+
+  qwen3_6_flash:
+    provider: openai_like
+    model_id: qwen3.6-flash
+    api_key_env: DASHSCOPE_API_KEY
+    base_url_env: DASHSCOPE_BASE_URL
+    default_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    extra_body:
+      enable_thinking: false
+    notes: Qwen3.6 Flash through DashScope OpenAI-compatible API.
+
   deepseek:
     provider: deepseek
     model_id: deepseek-chat
     api_key_env: DEEPSEEK_API_KEY
     base_url: https://api.deepseek.com
+    legacy: true
+    notes: Legacy compatibility profile; do not use for Phase G unless explicitly requested.
 
   deepseek_r1:
     provider: deepseek
     model_id: deepseek-reasoner
     api_key_env: DEEPSEEK_API_KEY
     base_url: https://api.deepseek.com
+    legacy: true
+    notes: Legacy compatibility profile; do not use for Phase G unless explicitly requested.
 
   claude:
     provider: anthropic
@@ -24,11 +89,86 @@ models:
     api_key_env: OPENAI_API_KEY
     base_url: https://api.openai.com/v1
 
+  gpt_5_4_mini:
+    provider: openai_like
+    model_id: gpt-5.4-mini
+    api_key_env: GPT_API_KEY
+    base_url: https://penguinapi.vip/v1
+    temperature: 0
+    max_tokens: 4096
+    supports_json_output: true
+    runtime_scenario_injection: true
+    notes: GPT-5.4-mini via PenguinAPI gateway. max_tokens capped at 4096 to control cost.
+
+  gpt_5_1:
+    provider: openai_like
+    model_id: gpt-5.1
+    api_key_env: GPT_API_KEY
+    base_url: https://penguinapi.vip/v1
+    temperature: 0
+    max_tokens: 4096
+    supports_json_output: true
+    disabled: true
+    notes: GPT-5.1 via PenguinAPI. Disabled — no available channel under current key group.
+
+  gpt_5_2:
+    provider: openai_like
+    model_id: gpt-5.2
+    api_key_env: GPT_API_KEY
+    base_url: https://penguinapi.vip/v1
+    temperature: 0
+    max_tokens: 4096
+    supports_json_output: true
+    runtime_scenario_injection: true
+    notes: GPT-5.2 via PenguinAPI gateway. Test profile for Stage 3 MCP tool-use validation.
+
+  claude_haiku_4_5:
+    provider: openai_like
+    model_id: claude-haiku-4-5-20251001
+    api_key_env: CLAUDE_API_KEY
+    base_url: https://penguinapi.vip/v1
+    temperature: 0
+    max_tokens: 4096
+    supports_json_output: true
+    notes: Claude Haiku 4.5 via PenguinAPI OpenAI-compatible gateway. max_tokens capped at 4096 to control cost.
+
   mimo_v25:
     provider: openai_like
     model_id: mimo-v2.5
     api_key_env: MIMO_API_KEY
     base_url: https://token-plan-cn.xiaomimimo.com/v1
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    extra_body:
+      enable_thinking: false
+    notes: MiMo v2.5 reasoning model; thinking disabled to avoid reasoning_content passback requirement.
+
+  glm_4_7:
+    provider: openai_like
+    model_id: glm-4.7
+    api_key_env: GLM_API_KEY
+    base_url: https://penguinapi.vip/v1
+    temperature: 0
+    max_tokens: 8192
+    supports_json_output: true
+    notes: GLM-4.7 via PenguinAPI OpenAI-compatible gateway.
+
+  gpt_future_placeholder:
+    provider: openai_like
+    model_id: gpt-placeholder
+    api_key_env: OPENAI_API_KEY
+    base_url_env: OPENAI_BASE_URL
+    default_base_url: https://api.openai.com/v1
+    disabled: true
+    notes: Reserved for later pre-submission external strong-model validation; not used in Phase G.
+
+  claude_future_placeholder:
+    provider: anthropic
+    model_id: claude-placeholder
+    api_key_env: ANTHROPIC_API_KEY
+    disabled: true
+    notes: Reserved for later pre-submission external strong-model validation; not used in Phase G.
 
 experiment:
   output_dir: experiments/results/realdata

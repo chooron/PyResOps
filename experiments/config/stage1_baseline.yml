@@ -1,0 +1,64 @@
+# Stage 1 Deterministic Baseline — Master Configuration
+# Tankeng (滩坑) Reservoir, 2025年度水库控制运用计划
+
+reservoir:
+  config_path: experiments/config/default_reservoir.yaml
+
+data:
+  root: data
+  flood_event_dir: data/flood_event
+  processed_dir: data/processed/flood_event
+  withpred_dir: data/withpred
+  summary_csv: data/flood_event_summary.csv
+
+output:
+  base_dir: experiments/results/stage1_baseline
+
+# Season-dependent flood limits (m)
+flood_limits:
+  meixun: 160.0       # 梅汛期 Apr 15 – Jun 30
+  taixun: 156.5       # 台汛期 Jul 16 – Oct 15
+  non_flood: 160.0    # 非汛期
+  absolute_ceiling: 161.5
+
+# Downstream routing (Muskingum, Hecheng 鹤城)
+downstream_routing:
+  K_hours: 5.0
+  x: 0.2
+  dt_hours: 3.0
+  safety_limit_m3s: 14000.0
+
+# Rolling workflow thresholds
+rolling_thresholds:
+  relative_error_trigger: 0.20
+  absolute_error_trigger_m3s: 200.0
+  level_risk_margin_m: 1.0
+  scheduled_interval_hours: 12
+  check_interval_hours: 3
+  min_remaining_horizon_hours: 9
+
+# Dynamic workflow: 10 selected events
+dynamic_events:
+  - 2010062002   # S4, highest level (160.16m), longest (264h)
+  - 2021052114   # S4, extreme volume (8.31亿m3), withpred
+  - 2024061623   # S3, high peak+level, withpred
+  - 2022062023   # S3, very high peak (3940), withpred
+  - 2013100711   # S4, high peak (4380), withpred
+  - 2024061517   # S3, high level (158.49m), withpred
+  - 2024061220   # S3, high level (157.24m), withpred
+  - 2009080920   # S4, highest peak (4650)
+  - 2019071011   # S2/S3, long duration (108h), withpred
+  - 2024060202   # S2, moderate (reference), 114h
+
+# Rolling workflow: all withpred events
+rolling_events:
+  - 2012062402
+  - 2013100711
+  - 2019070517
+  - 2019071011
+  - 2021052114
+  - 2022062023
+  - 2024061220
+  - 2024061517
+  - 2024061623
+  - 2024072617

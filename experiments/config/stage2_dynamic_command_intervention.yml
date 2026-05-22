@@ -1,0 +1,49 @@
+extension_type: dynamic_command_intervention
+
+events:
+  - "2010062002"
+  - "2021052114"
+  - "2009080920"
+  - "2012062402"
+  - "2024061623"
+
+command_types:
+  - release_cap_adjustment
+  - terminal_target_lowering
+  - target_deadline_compression
+  - conservative_risk_buffer
+
+checkpoints:
+  - T1
+  - T2_peak
+
+stage1_oracle_dir: experiments/results/stage1_dynamic_command_intervention
+
+oracle_tolerances:
+  max_level_m: 0.5
+  terminal_deviation_m: 0.5
+  inflow_peak_attenuation_rate: 0.05
+
+command_parameters:
+  D1_release_cap_adjustment:
+    release_cap_m3s: 1500
+    release_cap_m3s_moderate: 2000
+    high_inflow_threshold_m3s: 3000
+  D2_terminal_target_lowering:
+    target_level_delta_m: -0.5
+  D3_target_deadline_compression:
+    original_horizon_h: 12
+    new_deadline_h: 9
+  D4_conservative_risk_buffer:
+    flood_limit_buffer_m: 0.3
+
+flood_limits:
+  meixun: 160.0
+  taixun: 156.5
+  absolute_ceiling: 161.5
+
+downstream:
+  muskingum_k_h: 5
+  muskingum_x: 0.2
+  dt_h: 3
+  safety_limit_m3s: 14000

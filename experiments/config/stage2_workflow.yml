@@ -1,0 +1,66 @@
+# Stage 2 Workflow Replication — Configuration
+# Deterministic workflow-layer experiment; no LLM, no MCP.
+# Uses the same events, thresholds, and data paths as Stage 1.
+
+reservoir:
+  config_path: experiments/config/default_reservoir.yaml
+
+data:
+  root: data
+  flood_event_dir: data/flood_event
+  processed_dir: data/processed/flood_event
+  withpred_dir: data/withpred
+
+output:
+  base_dir: experiments/results/stage2
+
+stage1_oracle_dir: experiments/results/stage1
+
+# Season-dependent flood limits (m) — identical to Stage 1
+flood_limits:
+  meixun: 160.0
+  taixun: 156.5
+  non_flood: 160.0
+  absolute_ceiling: 161.5
+
+# Downstream routing — identical to Stage 1
+downstream_routing:
+  K_hours: 5.0
+  x: 0.2
+  dt_hours: 3.0
+  safety_limit_m3s: 14000.0
+
+# Rolling thresholds — identical to Stage 1
+rolling_thresholds:
+  relative_error_trigger: 0.20
+  absolute_error_trigger_m3s: 200.0
+  level_risk_margin_m: 1.0
+  scheduled_interval_hours: 12
+  check_interval_hours: 3
+  min_remaining_horizon_hours: 9
+
+# Dynamic workflow: same 10 events as Stage 1
+dynamic_events:
+  - 2010062002
+  - 2021052114
+  - 2024061623
+  - 2022062023
+  - 2013100711
+  - 2024061517
+  - 2024061220
+  - 2009080920
+  - 2019071011
+  - 2024060202
+
+# Rolling workflow: same 10 withpred events as Stage 1
+rolling_events:
+  - 2012062402
+  - 2013100711
+  - 2019070517
+  - 2019071011
+  - 2021052114
+  - 2022062023
+  - 2024061220
+  - 2024061517
+  - 2024061623
+  - 2024072617

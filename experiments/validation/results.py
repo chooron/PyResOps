@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -70,6 +71,10 @@ def build_stage_record(
     result = stage_result or {}
     evaluation_metrics = _extract_metrics(result)
     quality = _data_quality_fields(stage)
+    compact_result = compact_stage_result(result)
+    compact_tool_events = compact_audit_payload(
+        (result.get("llm_execution_trace") or {}).get("tool_events", [])
+    )
     return {
         "run_id": run_id,
         "scenario_set": scenario_set,
@@ -92,9 +97,9 @@ def build_stage_record(
         "operator_instruction": stage.operator_instruction,
         "had_carry_over_plan": bool(stage.payload.get("carry_over_plan")),
         "payload_summary": _payload_summary(stage),
-        "tool_trace": (result.get("llm_execution_trace") or {}).get("tool_events", []),
+        "tool_trace": compact_tool_events,
         "final_payload": _final_payload(result),
-        "raw_result": result,
+        "raw_result": compact_result,
         **quality,
         "failure_taxonomy": classify_failure_taxonomy(
             failure_reason or result.get("acceptance_failure_reason"),
@@ -202,6 +207,153 @@ def _final_payload(result: dict[str, Any]) -> dict[str, Any] | None:
     if isinstance(accepted, dict) and isinstance(accepted.get("final_payload"), dict):
         return dict(accepted["final_payload"])
     return None
+
+
+LONG_SERIES_KEYS = {
+    "benchmark_inflow_series_m3s",
+    "benchmark_observed_outflow_series_m3s",
+    "benchmark_precipitation_series_mm",
+    "benchmark_predicted_inflow_series_m3s",
+    "release_values_m3s",
+}
+
+
+def compact_audit_payload(value: Any, *, _key: str | None = None, _depth: int = 0) -> Any:
+    """Keep JSONL audit records traceable without repeatedly storing long arrays."""
+
+    if _depth > 8:
+        return _compact_scalar(value)
+    if isinstance(value, dict):
+        if _key == "family_attempts":
+            return _compact_family_attempts(value)
+        compact: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in {"simulation_result", "evaluation_result"}:
+                compact[key_text] = _object_summary(item)
+            elif key_text in LONG_SERIES_KEYS:
+                compact[key_text] = _series_summary(item)
+            elif key_text == "family_attempts":
+                compact[key_text] = _compact_family_attempts(item)
+            else:
+                compact[key_text] = compact_audit_payload(item, _key=key_text, _depth=_depth + 1)
+        return compact
+    if isinstance(value, list):
+        if _key in LONG_SERIES_KEYS or (len(value) > 24 and _mostly_numeric(value)):
+            return _series_summary(value)
+        if len(value) > 40:
+            return {
+                "count": len(value),
+                "first_items": [compact_audit_payload(item, _depth=_depth + 1) for item in value[:3]],
+                "last_items": [compact_audit_payload(item, _depth=_depth + 1) for item in value[-2:]],
+                "truncated": True,
+            }
+        return [compact_audit_payload(item, _depth=_depth + 1) for item in value]
+    if isinstance(value, str):
+        return _compact_string(value)
+    return value
+
+
+def compact_stage_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Compact a stage result for the raw_result field without duplicating tool traces."""
+
+    compact = compact_audit_payload(result)
+    if isinstance(compact, dict):
+        trace = compact.get("llm_execution_trace")
+        if isinstance(trace, dict) and isinstance(trace.get("tool_events"), list):
+            events = trace.pop("tool_events")
+            trace["tool_events_summary"] = {
+                "count": len(events),
+                "sequence": [str(event.get("tool_name")) for event in events if isinstance(event, dict)],
+            }
+    return compact if isinstance(compact, dict) else {}
+
+
+def _compact_family_attempts(value: Any) -> Any:
+    if not isinstance(value, list):
+        return compact_audit_payload(value)
+    rows = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        selected = item.get("selected_candidate") if isinstance(item.get("selected_candidate"), dict) else {}
+        rows.append(
+            {
+                "module_type": item.get("module_type"),
+                "candidate_count": item.get("candidate_count"),
+                "solver_method": item.get("solver_method"),
+                "selected_feasible": selected.get("feasible"),
+                "selected_final_level_m": selected.get("final_level_m"),
+                "selected_avg_outflow_m3s": selected.get("avg_outflow_m3s"),
+                "unmet_task_constraint_count": len(selected.get("unmet_task_constraints") or []),
+            }
+        )
+    return {"count": len(value), "attempts": rows}
+
+
+def _series_summary(value: Any) -> Any:
+    if not isinstance(value, list):
+        return value
+    numeric = [float(item) for item in value if isinstance(item, int | float)]
+    summary: dict[str, Any] = {
+        "count": len(value),
+        "first": value[:3],
+        "last": value[-3:] if len(value) > 3 else [],
+        "truncated": True,
+    }
+    if numeric:
+        summary.update(
+            {
+                "min": round(min(numeric), 6),
+                "max": round(max(numeric), 6),
+                "mean": round(sum(numeric) / len(numeric), 6),
+            }
+        )
+    return summary
+
+
+def _mostly_numeric(value: list[Any]) -> bool:
+    if not value:
+        return False
+    numeric_count = sum(1 for item in value if isinstance(item, int | float))
+    return numeric_count / len(value) >= 0.8
+
+
+def _compact_string(value: str) -> str | dict[str, Any]:
+    stripped = value.strip()
+    if stripped.startswith(("{", "[")):
+        try:
+            decoded = json.loads(stripped)
+        except json.JSONDecodeError:
+            decoded = None
+        if decoded is not None:
+            compact = compact_audit_payload(decoded)
+            text = json.dumps(compact, ensure_ascii=False, default=str)
+            if len(text) < len(value):
+                return text
+    if len(value) <= 8000:
+        return value
+    return {
+        "text_preview": value[:4000],
+        "original_length": len(value),
+        "sha256": hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest(),
+        "truncated": True,
+    }
+
+
+def _object_summary(value: Any) -> dict[str, Any]:
+    return {
+        "object_type": type(value).__name__,
+        "repr_sha256": hashlib.sha256(repr(value).encode("utf-8", errors="replace")).hexdigest(),
+    }
+
+
+def _compact_scalar(value: Any) -> Any:
+    if isinstance(value, str):
+        return _compact_string(value)
+    if isinstance(value, int | float | bool) or value is None:
+        return value
+    return _object_summary(value)
 
 
 def _data_quality_fields(stage: WorkflowStage) -> dict[str, Any]:

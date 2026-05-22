@@ -72,7 +72,7 @@ def test_rolling_auto_scan_deduplicates_configured_forecast_path() -> None:
         method="all",
     )
 
-    assert resolve_rolling_event_paths(cfg) == ["data/2024072617_with_pred.csv"]
+    assert resolve_rolling_event_paths(cfg) == ["data/withpred/2024072617.csv"]
     s3_cases = [case for case in cases if case.scenario_group == "s3"]
     assert len(s3_cases) == 2
 

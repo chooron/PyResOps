@@ -54,10 +54,44 @@ Thumbs.db
 # Logs
 *.log
 
-# Environment variables
+# Environment variables and local secrets
 .env
 .env.*
 !.env.example
+*.env
+*.env.local
+*.secret
+*.secrets
+secrets.*
+credentials.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cert
+*.token
+token.*
+api_keys.*
+service-account*.json
+*_service_account.json
+
+# Local AI/LLM tooling state
+.claude/
+.cursor/
+.continue/
+
+# Local model/provider configs that may contain endpoints, keys, or account data
+experiments/config/llm_config.yml
+experiments/config/*local*.yml
+experiments/config/*local*.yaml
+experiments/config/*secret*.yml
+experiments/config/*secret*.yaml
+experiments/config/*credential*.yml
+experiments/config/*credential*.yaml
+experiments/config/*event_list*.txt
+experiments/config/*event_selection*.csv
+experiments/config/*representative_events*.txt
 
 .ruff_cache/
 
@@ -67,10 +101,65 @@ Thumbs.db
 .planning/
 .tmp/
 
-docs
+# Privacy-sensitive data
+# Keep one representative public/sample case (2024072617); ignore the rest.
+data/*
+!data/*.py
+!data/flood_event/
+data/flood_event/*
+!data/flood_event/2024072617.csv
+!data/processed/
+data/processed/*
+!data/processed/flood_event/
+data/processed/flood_event/*
+!data/processed/flood_event/2024072617.csv
+!data/withpred/
+data/withpred/*
+!data/withpred/2024072617.csv
+!data/wrongtest/
+data/wrongtest/*
+!data/wrongtest/2024072617_wrongtest_mixed_mild.csv
 
-data/
+# Generated experiment outputs and run artifacts
+experiments/results/**
+!experiments/results/
+!experiments/results/README.md
+!experiments/results/*.py
+experiments/**/outputs/
+experiments/**/runs/
+experiments/**/artifacts/
+experiments/**/checkpoints/
+experiments/**/trajectories/
+experiments/**/traces/
+experiments/**/*.jsonl
+experiments/**/*_stdout.txt
+experiments/**/*_stderr.txt
+experiments/**/*_log.txt
+experiments/figures/**/*.csv
+experiments/figures/**/*.png
+experiments/figures/**/*.pdf
+experiments/figures/**/tables/
+experiments/figures/**/*_data_report.md
 
-results/
+# Generated documentation artifacts
+docs/paper/generated/
+docs/paper/**/generated/
+docs/paper/**/*.csv
+docs/paper/**/*.png
+docs/paper/**/*.pdf
+docs/paper/**/*.bkp
+docs/paper/**/*.aux
+docs/paper/**/*.bbl
+docs/paper/**/*.blg
+docs/paper/**/*.fdb_latexmk
+docs/paper/**/*.fls
+docs/paper/**/*.log
+docs/paper/**/*.out
+docs/paper/**/*.synctex.gz
+docs/paper/**/*.toc
+docs/paper/**/*.xdv
+
 report/
 legacy/
+
+.claude/

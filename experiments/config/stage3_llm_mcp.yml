@@ -1,0 +1,65 @@
+# Rolling workflow execution policy
+rolling:
+  llm_call_policy: trigger_only   # trigger_only | dense
+  log_retain_steps: true
+  dense_subset_enabled: false
+  dense_subset_events:
+    - 2012062402
+    - 2024061623
+    - 2024072617
+
+# Stage 3 LLM + MCP Tool-Use Evaluation — Configuration
+
+model_profile: minimax_m2_5_free
+llm_config_path: experiments/config/llm_config.yml
+
+data:
+  root: data
+  flood_event_dir: data/flood_event
+  withpred_dir: data/withpred
+
+output:
+  base_dir: experiments/results/stage3
+
+stage2_oracle_dir: experiments/results/stage2
+
+# MCP server connection
+mcp:
+  transport: stdio
+  command: "python -m pyresops.server"
+  connect_timeout_seconds: 30
+  call_timeout_seconds: 120
+  agent_timeout_seconds: 180
+  refresh_connection: true
+
+# Fail-closed oracle tolerances (for Stage 2 comparison)
+oracle_tolerances:
+  max_level_m: 0.5
+  terminal_deviation_m: 0.5
+  peak_reduction_rate: 0.05
+
+# Dynamic workflow: same 10 events as Stage 1/2
+dynamic_events:
+  - 2010062002
+  - 2021052114
+  - 2024061623
+  - 2022062023
+  - 2013100711
+  - 2024061517
+  - 2024061220
+  - 2009080920
+  - 2019071011
+  - 2024060202
+
+# Rolling workflow: same 10 withpred events as Stage 1/2
+rolling_events:
+  - 2012062402
+  - 2013100711
+  - 2019070517
+  - 2019071011
+  - 2021052114
+  - 2022062023
+  - 2024061220
+  - 2024061517
+  - 2024061623
+  - 2024072617

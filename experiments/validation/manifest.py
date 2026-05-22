@@ -133,7 +133,12 @@ def _normalize_event_id(value: str) -> str:
 
 
 def _has_forecast_file(data_root: Path, event_id: str) -> bool:
-    return (data_root / f"{event_id}_with_pred.csv").exists()
+    candidates = [
+        data_root / f"{event_id}_with_pred.csv",
+        data_root / "withpred" / f"{event_id}.csv",
+        data_root / "withpred" / f"{event_id}_with_pred.csv",
+    ]
+    return any(path.exists() for path in candidates)
 
 
 def _risk_class(flood_limit_level: float, max_level: float, peak_inflow: float) -> str:

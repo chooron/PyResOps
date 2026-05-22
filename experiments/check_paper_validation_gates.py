@@ -10,77 +10,97 @@ from typing import Any
 
 import pandas as pd
 
+from experiments.paper_validation.command_challenge import (
+    command_challenge_gate_metrics,
+    deepseek_subset_gate_metrics,
+)
 
-def evaluate_gates(summary_path: str | Path, *, include_mcp_skill: bool = False) -> dict[str, Any]:
+
+def evaluate_gates(
+    summary_path: str | Path,
+    *,
+    include_mcp_skill: bool = False,
+    include_component_ablation: bool = False,
+    include_command_challenge: bool = False,
+    include_deepseek_subset: bool = False,
+) -> dict[str, Any]:
     frame = _ensure_gate_columns(pd.read_csv(summary_path, encoding="utf-8-sig"))
     metrics = _summary_metrics(frame)
     failures: list[dict[str, Any]] = []
 
-    _check_gate(
-        failures,
-        "tools_only_success_rate",
-        (metrics["tools_only_record_count"] == 0) or metrics["tools_only_success_rate"] == 1.0,
-        metrics["tools_only_success_rate"],
-        "Check tools baseline regressions.",
-    )
-    _check_gate(
-        failures,
-        "tools_only_hard_constraint_violation_count",
-        (metrics["tools_only_record_count"] == 0)
-        or metrics["tools_only_hard_constraint_violation_count"] == 0,
-        metrics["tools_only_hard_constraint_violation_count"],
-        "Inspect safety evaluation or reservoir spec mismatch.",
-    )
-    _check_gate(
-        failures,
-        "mimo_static_strict_clean_success_rate",
-        (metrics["mimo_static_strict_clean_record_count"] == 0)
-        or metrics["mimo_static_strict_clean_success_rate"] >= 0.95,
-        metrics["mimo_static_strict_clean_success_rate"],
-        "Review static prompt and protocol adherence.",
-    )
-    _check_gate(
-        failures,
-        "mimo_static_repaired_success_rate",
-        (metrics["mimo_static_repaired_record_count"] == 0)
-        or metrics["mimo_static_repaired_success_rate"] >= 0.95,
-        metrics["mimo_static_repaired_success_rate"],
-        "Review repaired-event handling in static prompt.",
-    )
-    _check_gate(
-        failures,
-        "mimo_dynamic_carry_over_evaluation_rate",
-        (metrics["mimo_dynamic_record_count"] == 0)
-        or metrics["mimo_dynamic_carry_over_evaluation_rate"] == 1.0,
-        metrics["mimo_dynamic_carry_over_evaluation_rate"],
-        "Carry-over evaluate-first protocol is violated.",
-    )
-    _check_gate(
-        failures,
-        "mimo_dynamic_protocol_adherence_rate",
-        (metrics["mimo_dynamic_record_count"] == 0)
-        or metrics["mimo_dynamic_protocol_adherence_rate"] >= 0.95,
-        metrics["mimo_dynamic_protocol_adherence_rate"],
-        "Review dynamic prompt and tool-chain taxonomy.",
-    )
-    _check_gate(
-        failures,
-        "mimo_rolling_real_success_rate",
-        (metrics["mimo_rolling_real_record_count"] == 0)
-        or metrics["mimo_rolling_real_success_rate"] == 1.0,
-        metrics["mimo_rolling_real_success_rate"],
-        "Review rolling real-forecast setup.",
-    )
-    _check_gate(
-        failures,
-        "rolling_stress_success_rate",
-        (metrics["rolling_stress_record_count"] == 0)
-        or metrics["rolling_stress_success_rate"] >= 0.90,
-        metrics["rolling_stress_success_rate"],
-        "Review forecast-error stress protocol or model robustness.",
-    )
+    include_phase_g_only = include_command_challenge or include_deepseek_subset
+    if not include_phase_g_only:
+        _check_gate(
+            failures,
+            "tools_only_success_rate",
+            (metrics["tools_only_record_count"] == 0) or metrics["tools_only_success_rate"] == 1.0,
+            metrics["tools_only_success_rate"],
+            "Check tools baseline regressions.",
+        )
+        _check_gate(
+            failures,
+            "tools_only_hard_constraint_violation_count",
+            (metrics["tools_only_record_count"] == 0)
+            or metrics["tools_only_hard_constraint_violation_count"] == 0,
+            metrics["tools_only_hard_constraint_violation_count"],
+            "Inspect safety evaluation or reservoir spec mismatch.",
+        )
+        _check_gate(
+            failures,
+            "mimo_static_strict_clean_success_rate",
+            (metrics["mimo_static_strict_clean_record_count"] == 0)
+            or metrics["mimo_static_strict_clean_success_rate"] >= 0.95,
+            metrics["mimo_static_strict_clean_success_rate"],
+            "Review static prompt and protocol adherence.",
+        )
+        _check_gate(
+            failures,
+            "mimo_static_repaired_success_rate",
+            (metrics["mimo_static_repaired_record_count"] == 0)
+            or metrics["mimo_static_repaired_success_rate"] >= 0.95,
+            metrics["mimo_static_repaired_success_rate"],
+            "Review repaired-event handling in static prompt.",
+        )
+        _check_gate(
+            failures,
+            "mimo_dynamic_carry_over_evaluation_rate",
+            (metrics["mimo_dynamic_record_count"] == 0)
+            or metrics["mimo_dynamic_carry_over_evaluation_rate"] == 1.0,
+            metrics["mimo_dynamic_carry_over_evaluation_rate"],
+            "Carry-over evaluate-first protocol is violated.",
+        )
+        _check_gate(
+            failures,
+            "mimo_dynamic_protocol_adherence_rate",
+            (metrics["mimo_dynamic_record_count"] == 0)
+            or metrics["mimo_dynamic_protocol_adherence_rate"] >= 0.95,
+            metrics["mimo_dynamic_protocol_adherence_rate"],
+            "Review dynamic prompt and tool-chain taxonomy.",
+        )
+        _check_gate(
+            failures,
+            "mimo_rolling_real_success_rate",
+            (metrics["mimo_rolling_real_record_count"] == 0)
+            or metrics["mimo_rolling_real_success_rate"] == 1.0,
+            metrics["mimo_rolling_real_success_rate"],
+            "Review rolling real-forecast setup.",
+        )
+        _check_gate(
+            failures,
+            "rolling_stress_success_rate",
+            (metrics["rolling_stress_record_count"] == 0)
+            or metrics["rolling_stress_success_rate"] >= 0.90,
+            metrics["rolling_stress_success_rate"],
+            "Review forecast-error stress protocol or model robustness.",
+        )
     if include_mcp_skill:
         _check_mcp_skill_gates(failures, metrics)
+    if include_component_ablation:
+        _check_component_ablation_gates(failures, metrics)
+    if include_command_challenge:
+        _check_command_challenge_gates(failures, metrics)
+    if include_deepseek_subset:
+        _check_deepseek_subset_gates(failures, metrics)
 
     status = "PASS" if not failures else "FAIL"
     return {
@@ -96,14 +116,32 @@ def main() -> None:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--latest", action="store_true")
     parser.add_argument("--include-mcp-skill", action="store_true")
+    parser.add_argument("--include-component-ablation", action="store_true")
+    parser.add_argument("--include-command-challenge", action="store_true")
+    parser.add_argument("--include-deepseek-subset", action="store_true")
     args = parser.parse_args()
 
     summary_path = (
+        _build_latest_phase_summary("deepseek-mcp-skill-subset")
+        if args.include_deepseek_subset and args.latest and args.run_id is None
+        else
+        _build_latest_phase_summary("command-challenge")
+        if args.include_command_challenge and args.latest and args.run_id is None
+        else
+        _build_latest_component_ablation_summary()
+        if args.include_component_ablation and args.latest and args.run_id is None
+        else
         _build_latest_mcp_combined_summary()
         if args.include_mcp_skill and args.latest and args.run_id is None
         else _resolve_summary_path(args.run_id, args.latest)
     )
-    result = evaluate_gates(summary_path, include_mcp_skill=args.include_mcp_skill)
+    result = evaluate_gates(
+        summary_path,
+        include_mcp_skill=args.include_mcp_skill,
+        include_component_ablation=args.include_component_ablation,
+        include_command_challenge=args.include_command_challenge,
+        include_deepseek_subset=args.include_deepseek_subset,
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if result["status"] != "PASS":
         raise SystemExit(1)
@@ -150,6 +188,28 @@ def _build_latest_mcp_combined_summary() -> Path:
     return output
 
 
+def _build_latest_component_ablation_summary() -> Path:
+    root = Path("experiments/results/paper_validation")
+    candidates = sorted(root.glob("component-ablation_*_summary.csv"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if not candidates:
+        candidates = sorted(
+            root.glob("component-ablation-smoke_*_summary.csv"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    if not candidates:
+        raise FileNotFoundError("No component-ablation summary files found")
+    return candidates[0]
+
+
+def _build_latest_phase_summary(phase: str) -> Path:
+    root = Path("experiments/results/paper_validation")
+    candidates = sorted(root.glob(f"{phase}_*_summary.csv"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if not candidates:
+        raise FileNotFoundError(f"No {phase} summary files found")
+    return candidates[0]
+
+
 def _check_gate(failures: list[dict[str, Any]], gate: str, ok: bool, metric: Any, suggestion: str) -> None:
     if not ok:
         failures.append({"gate": gate, "metric": metric, "suggested_next_action": suggestion})
@@ -173,6 +233,58 @@ def _check_mcp_skill_gates(failures: list[dict[str, Any]], metrics: dict[str, An
             "final_payload_valid_rate": metrics["mcp_skill_smoke_final_payload_valid_rate"],
         },
         "Check MCP server startup, tools/list, tools/call, and final payload parsing.",
+    )
+
+
+def _check_component_ablation_gates(failures: list[dict[str, Any]], metrics: dict[str, Any]) -> None:
+    _check_gate(
+        failures,
+        "component_b2_records_and_classification",
+        metrics["component_b2_record_count"] > 0
+        and metrics["component_b2_unclassified_failure_count"] == 0,
+        {
+            "record_count": metrics["component_b2_record_count"],
+            "unclassified_failure_count": metrics["component_b2_unclassified_failure_count"],
+        },
+        "Ensure B2 no-tools produces records and classified parser/validator outcomes.",
+    )
+    _check_gate(
+        failures,
+        "component_b3_mcp_transport",
+        (metrics["component_b3_record_count"] == 0)
+        or (
+            metrics["component_b3_mcp_connect_success_rate"] >= 0.95
+            and metrics["component_b3_mcp_tools_list_success_rate"] >= 0.95
+            and metrics["component_b3_mcp_tool_call_success_rate"] >= 0.95
+            and metrics["component_b3_hard_constraint_violation_count"] == 0
+        ),
+        {
+            "record_count": metrics["component_b3_record_count"],
+            "connect_success_rate": metrics["component_b3_mcp_connect_success_rate"],
+            "tools_list_success_rate": metrics["component_b3_mcp_tools_list_success_rate"],
+            "tool_call_success_rate": metrics["component_b3_mcp_tool_call_success_rate"],
+            "hard_constraint_violation_count": metrics["component_b3_hard_constraint_violation_count"],
+        },
+        "Review B3 MCPTools no-skill transport and safety traces.",
+    )
+    _check_gate(
+        failures,
+        "component_b4_skill",
+        (metrics["component_b4_record_count"] == 0)
+        or (
+            metrics["component_b4_success_rate"] >= 0.95
+            and metrics["component_b4_hard_constraint_violation_count"] == 0
+            and metrics["component_b4_protocol_adherence_rate"] >= 0.95
+            and metrics["component_b4_structured_output_valid_rate"] >= 0.95
+        ),
+        {
+            "record_count": metrics["component_b4_record_count"],
+            "success_rate": metrics["component_b4_success_rate"],
+            "hard_constraint_violation_count": metrics["component_b4_hard_constraint_violation_count"],
+            "protocol_adherence_rate": metrics["component_b4_protocol_adherence_rate"],
+            "structured_output_valid_rate": metrics["component_b4_structured_output_valid_rate"],
+        },
+        "Review B4 MCPTools+Skill subset traces.",
     )
     _check_gate(
         failures,
@@ -250,6 +362,89 @@ def _check_mcp_skill_gates(failures: list[dict[str, Any]], metrics: dict[str, An
     )
 
 
+def _check_command_challenge_gates(failures: list[dict[str, Any]], metrics: dict[str, Any]) -> None:
+    _check_gate(
+        failures,
+        "command_challenge_mimo_b4",
+        (metrics["command_b4_record_count"] == 0)
+        or (
+            metrics["command_b4_hard_constraint_violation_count"] == 0
+            and metrics["command_b4_structured_output_valid_rate"] >= 0.95
+            and metrics["command_b4_protocol_adherence_rate"] >= 0.95
+            and metrics["command_b4_infeasible_command_detection_rate"] >= 0.90
+            and metrics["command_b4_unsafe_command_rejection_rate"] >= 0.90
+        ),
+        {
+            "record_count": metrics["command_b4_record_count"],
+            "hard_constraint_violation_count": metrics["command_b4_hard_constraint_violation_count"],
+            "structured_output_valid_rate": metrics["command_b4_structured_output_valid_rate"],
+            "protocol_adherence_rate": metrics["command_b4_protocol_adherence_rate"],
+            "infeasible_command_detection_rate": metrics["command_b4_infeasible_command_detection_rate"],
+            "unsafe_command_rejection_rate": metrics["command_b4_unsafe_command_rejection_rate"],
+        },
+        "Review B4 command skill coverage, infeasible-command handling, and evaluation references.",
+    )
+    _check_gate(
+        failures,
+        "command_challenge_b4_vs_b3",
+        (metrics["command_b4_record_count"] == 0)
+        or (
+            metrics["command_b4_command_following_success_rate"]
+            >= metrics["command_b3_command_following_success_rate"]
+            and metrics["command_b4_evaluation_reference_valid_rate"]
+            >= metrics["command_b3_evaluation_reference_valid_rate"]
+        ),
+        {
+            "b4_command_following_success_rate": metrics["command_b4_command_following_success_rate"],
+            "b3_command_following_success_rate": metrics["command_b3_command_following_success_rate"],
+            "b4_evaluation_reference_valid_rate": metrics["command_b4_evaluation_reference_valid_rate"],
+            "b3_evaluation_reference_valid_rate": metrics["command_b3_evaluation_reference_valid_rate"],
+        },
+        "Compare B4 command and evaluation-reference records against B3 without hiding B3 wins.",
+    )
+    _check_gate(
+        failures,
+        "command_challenge_b2_evaluation_reference",
+        (metrics["command_b2_record_count"] == 0)
+        or metrics["command_b2_evaluation_reference_valid_rate"] <= 0.20
+        or metrics["command_b2_evaluation_reference_valid_rate"]
+        < metrics["command_b4_evaluation_reference_valid_rate"],
+        {
+            "b2_evaluation_reference_valid_rate": metrics["command_b2_evaluation_reference_valid_rate"],
+            "b4_evaluation_reference_valid_rate": metrics["command_b4_evaluation_reference_valid_rate"],
+        },
+        "Ensure B2 text-only references are not counted as tool-grounded evaluation evidence.",
+    )
+
+
+def _check_deepseek_subset_gates(failures: list[dict[str, Any]], metrics: dict[str, Any]) -> None:
+    _check_gate(
+        failures,
+        "deepseek_subset",
+        (metrics["deepseek_record_count"] == 0)
+        or (
+            metrics["deepseek_success_rate"] >= 0.90
+            and metrics["deepseek_hard_constraint_violation_count"] == 0
+            and metrics["deepseek_mcp_tool_call_success_rate"] >= 0.95
+            and metrics["deepseek_structured_output_valid_rate"] >= 0.90
+            and metrics["deepseek_protocol_adherence_rate"] >= 0.90
+            and metrics["deepseek_command_unsafe_rejection_rate"] >= 0.80
+            and metrics["deepseek_command_infeasible_detection_rate"] >= 0.80
+        ),
+        {
+            "record_count": metrics["deepseek_record_count"],
+            "success_rate": metrics["deepseek_success_rate"],
+            "hard_constraint_violation_count": metrics["deepseek_hard_constraint_violation_count"],
+            "mcp_tool_call_success_rate": metrics["deepseek_mcp_tool_call_success_rate"],
+            "structured_output_valid_rate": metrics["deepseek_structured_output_valid_rate"],
+            "protocol_adherence_rate": metrics["deepseek_protocol_adherence_rate"],
+            "unsafe_command_rejection_rate": metrics["deepseek_command_unsafe_rejection_rate"],
+            "infeasible_command_detection_rate": metrics["deepseek_command_infeasible_detection_rate"],
+        },
+        "Review DeepSeek MCPTools+Skill subset traces; do not fall back to MiMo.",
+    )
+
+
 def _summary_metrics(frame: pd.DataFrame) -> dict[str, Any]:
     if frame.empty:
         return {key: 0.0 for key in _metric_keys()}
@@ -294,6 +489,9 @@ def _summary_metrics(frame: pd.DataFrame) -> dict[str, Any]:
         "rolling_stress_success_rate": _rate(rolling_stress_mask),
     }
     metrics.update(_mcp_skill_metrics(frame))
+    metrics.update(_component_ablation_metrics(frame))
+    metrics.update(command_challenge_gate_metrics(frame))
+    metrics.update(deepseek_subset_gate_metrics(frame))
     return metrics
 
 
@@ -317,6 +515,17 @@ def _ensure_gate_columns(frame: pd.DataFrame) -> pd.DataFrame:
         "had_carry_over_plan": False,
         "tool_call_chain": "[]",
         "mcp_tool_call_sequence": "[]",
+        "executable_plan": False,
+        "evaluation_reference_valid": False,
+        "command_id": None,
+        "command_type": None,
+        "command_following_success": False,
+        "instruction_status_accuracy": False,
+        "is_feasible_command": False,
+        "is_infeasible_command": False,
+        "is_unsafe_command": False,
+        "feasible_command_success": False,
+        "unsafe_command_rejected": False,
     }
     for column, default in defaults.items():
         if column not in frame.columns:
@@ -364,6 +573,33 @@ def _mcp_skill_metrics(frame: pd.DataFrame) -> dict[str, Any]:
         "mcp_skill_rolling_stress_hard_constraint_violation_count": _hard_count(stress),
         "mcp_skill_rolling_stress_forecast_error_type_coverage_rate": _coverage_rate(stress, "forecast_error_type"),
         "mcp_skill_rolling_stress_tool_call_success_rate": _mcp_tool_success_rate(stress),
+    }
+
+
+def _component_ablation_metrics(frame: pd.DataFrame) -> dict[str, Any]:
+    component = frame[frame["phase"].isin(["component-ablation", "component-ablation-smoke"])].copy()
+    b2 = component[component["paper_method_level"] == "L2"]
+    b3 = component[component["paper_method_level"] == "B3"]
+    b4 = component[component["paper_method_level"] == "B4"]
+    b2_failures = b2[~b2["process_success"].map(_to_bool)] if not b2.empty else pd.DataFrame()
+    return {
+        "component_b2_record_count": int(len(b2)),
+        "component_b2_unclassified_failure_count": int(
+            b2_failures["failure_reason"].fillna("").astype(str).str.strip().eq("").sum()
+        )
+        if not b2_failures.empty and "failure_reason" in b2_failures.columns
+        else 0,
+        "component_b2_executable_plan_rate": _bool_rate(b2, "executable_plan"),
+        "component_b3_record_count": int(len(b3)),
+        "component_b3_mcp_connect_success_rate": _bool_rate(b3, "mcp_connect_success"),
+        "component_b3_mcp_tools_list_success_rate": _bool_rate(b3, "mcp_tools_list_success"),
+        "component_b3_mcp_tool_call_success_rate": _mcp_tool_success_rate(b3),
+        "component_b3_hard_constraint_violation_count": _hard_count(b3),
+        "component_b4_record_count": int(len(b4)),
+        "component_b4_success_rate": _success_rate(b4),
+        "component_b4_hard_constraint_violation_count": _hard_count(b4),
+        "component_b4_protocol_adherence_rate": _bool_rate(b4, "protocol_adherent"),
+        "component_b4_structured_output_valid_rate": _bool_rate(b4, "structured_output_valid"),
     }
 
 
@@ -461,6 +697,27 @@ def _metric_keys() -> list[str]:
         "mimo_dynamic_protocol_adherence_rate",
         "mimo_rolling_real_success_rate",
         "rolling_stress_success_rate",
+        "command_b2_record_count",
+        "command_b2_evaluation_reference_valid_rate",
+        "command_b3_record_count",
+        "command_b3_command_following_success_rate",
+        "command_b3_evaluation_reference_valid_rate",
+        "command_b4_record_count",
+        "command_b4_hard_constraint_violation_count",
+        "command_b4_structured_output_valid_rate",
+        "command_b4_protocol_adherence_rate",
+        "command_b4_infeasible_command_detection_rate",
+        "command_b4_unsafe_command_rejection_rate",
+        "command_b4_command_following_success_rate",
+        "command_b4_evaluation_reference_valid_rate",
+        "deepseek_record_count",
+        "deepseek_success_rate",
+        "deepseek_hard_constraint_violation_count",
+        "deepseek_mcp_tool_call_success_rate",
+        "deepseek_structured_output_valid_rate",
+        "deepseek_protocol_adherence_rate",
+        "deepseek_command_unsafe_rejection_rate",
+        "deepseek_command_infeasible_detection_rate",
     ]
 
 

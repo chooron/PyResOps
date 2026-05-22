@@ -10,6 +10,7 @@ from experiments.workflows import (
     StaticRealDataWorkflow,
 )
 from experiments.workflows.contracts import STATIC_S01_CHAIN
+from experiments.workflows.rolling import RollingThresholds
 import builtins
 
 from pyresops.agents.model_builder import build_agno_model
@@ -49,7 +50,7 @@ def test_predicted_real_event_contains_predict_and_3h_step() -> None:
 
     event = adapter.load_predicted_event()
 
-    assert event.event_id == "2024072617_with_pred"
+    assert event.event_id == "2024072617"
     assert event.has_prediction is True
     assert event.time_step_hours == 3
     assert any(record.predict is not None for record in event.records)
@@ -208,6 +209,52 @@ def test_rolling_workflow_uses_predict_and_records_replan_reasons() -> None:
         stage.replan_reason in {"relative_forecast_error", "absolute_forecast_error", "state_risk"}
         for stage in prepared.stages
     )
+
+
+def test_rolling_12h_scheduled_checks_respect_trigger_priority() -> None:
+    adapter = RealEventDataAdapter()
+    thresholds = RollingThresholds(
+        relative_error_trigger=0.30,
+        absolute_error_trigger_m3s=300.0,
+        high_level_margin_m=0.5,
+        min_remaining_horizon_hours=12,
+        check_interval_hours=12,
+        scheduled_check_replan=True,
+    )
+
+    prepared = RollingRealDataWorkflow(
+        adapter,
+        thresholds=thresholds,
+        manual_instruction_offsets={},
+    ).prepare("data/withpred/2024072617.csv")
+
+    assert [stage.offset_hours for stage in prepared.stages] == [0, 12, 24, 36, 48, 60, 72]
+    assert {stage.replan_reason for stage in prepared.stages} == {"scheduled_12h_check"}
+    assert all(stage.operator_instruction == "" for stage in prepared.stages)
+
+
+def test_rolling_12h_checks_prioritize_forecast_error_before_state_risk() -> None:
+    adapter = RealEventDataAdapter()
+    thresholds = RollingThresholds(
+        relative_error_trigger=0.30,
+        absolute_error_trigger_m3s=300.0,
+        high_level_margin_m=0.5,
+        min_remaining_horizon_hours=12,
+        check_interval_hours=12,
+        scheduled_check_replan=True,
+    )
+
+    prepared = RollingRealDataWorkflow(
+        adapter,
+        thresholds=thresholds,
+        manual_instruction_offsets={},
+    ).prepare("data/withpred/2022062023.csv")
+
+    reasons_by_offset = {stage.offset_hours: stage.replan_reason for stage in prepared.stages}
+    assert reasons_by_offset[12] == "relative_forecast_error"
+    assert reasons_by_offset[24] == "relative_forecast_error"
+    assert reasons_by_offset[84] == "state_risk"
+    assert reasons_by_offset[0] == "scheduled_12h_check"
 
 
 def test_tools_only_low_capacity_case_scores_ecology_without_process_failure() -> None:

@@ -1,0 +1,30 @@
+extension_type: infeasible_command_benchmark
+
+events:
+  - "2010062002"
+  - "2021052114"
+  - "2009080920"
+  - "2012062402"
+  - "2024061623"
+
+checkpoints:
+  - T1
+  - T2_peak
+
+command_types:
+  - U1_unreachable_terminal_target
+  - U2_compressed_deadline_unreachable
+  - U3_downstream_release_limit_exceedance
+  - U4_upper_level_buffer_conflict
+
+output_dir: outputs/infeasible_command_benchmark
+data_root: data
+
+limits:
+  downstream_release_limit_m3s: 14000.0
+  safety_buffer_m: 0.3
+  upper_conflict_delta_m: 0.5
+  unreachable_target_delta_m: -0.5
+  compressed_target_delta_m: -2.0
+  compressed_deadline_h: 3
+  downstream_exceedance_release_m3s: 14500.0

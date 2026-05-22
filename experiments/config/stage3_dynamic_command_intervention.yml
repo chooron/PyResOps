@@ -1,0 +1,32 @@
+extension_type: dynamic_command_intervention_llm
+
+events:
+  - "2010062002"
+  - "2021052114"
+  - "2009080920"
+  - "2012062402"
+  - "2024061623"
+
+command_types:
+  - D1_release_cap_adjustment
+  - D2_terminal_target_lowering
+  - D3_target_deadline_compression
+  - D4_conservative_risk_buffer
+
+checkpoints:
+  - T1
+  - T2_peak
+
+model_profile: mimo_v25
+
+stage2_oracle_dir: experiments/results/stage2_dynamic_command_intervention
+
+oracle_tolerances:
+  max_level_m: 0.5
+  terminal_deviation_m: 0.5
+  inflow_peak_attenuation_rate: 0.05
+
+data:
+  root: data
+
+llm_config_path: experiments/config/llm_config.yml

@@ -3,7 +3,7 @@ name: minimal_validation
 data:
   root: data
   flood_event_dir: data/flood_event
-  predicted_event: data/2024072617_with_pred.csv
+  predicted_event: data/withpred/2024072617.csv
 
 output:
   dir: experiments/results/minimal_validation
@@ -37,7 +37,7 @@ s0:
     6: -0.2
     9: -0.1
   rolling_event_paths:
-    - data/2024072617_with_pred.csv
+    - data/withpred/2024072617.csv
 
 s1:
   methods:

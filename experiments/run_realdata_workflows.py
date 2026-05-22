@@ -102,6 +102,8 @@ def main() -> None:
             absolute_error_trigger_m3s=float(rolling_cfg.get("absolute_error_trigger_m3s", 150.0)),
             high_level_margin_m=float(rolling_cfg.get("high_level_margin_m", 0.5)),
             min_remaining_horizon_hours=int(rolling_cfg.get("min_remaining_horizon_hours", 9)),
+            check_interval_hours=int(rolling_cfg.get("check_interval_hours", 3)),
+            scheduled_check_replan=bool(rolling_cfg.get("scheduled_check_replan", False)),
         )
         manual_offsets = {
             int(offset): str(text)

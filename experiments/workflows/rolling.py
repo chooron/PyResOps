@@ -23,6 +23,12 @@ class RollingThresholds:
     absolute_error_trigger_m3s: float = 150.0
     high_level_margin_m: float = 0.5
     min_remaining_horizon_hours: int = 9
+    check_interval_hours: int = 3
+    scheduled_check_replan: bool = False
+
+    def __post_init__(self) -> None:
+        if self.check_interval_hours <= 0:
+            raise ValueError("check_interval_hours must be positive")
 
 
 class RollingRealDataWorkflow:
@@ -36,11 +42,17 @@ class RollingRealDataWorkflow:
         runner=None,
         thresholds: RollingThresholds | None = None,
         manual_instruction_offsets: dict[int, str] | None = None,
+        continue_on_stage_failure: bool = False,
     ):
         self.adapter = adapter or RealEventDataAdapter()
         self.runner = runner
         self.thresholds = thresholds or RollingThresholds()
-        self.manual_instruction_offsets = dict(manual_instruction_offsets or {6: "Operator review at 6h."})
+        self.continue_on_stage_failure = continue_on_stage_failure
+        self.manual_instruction_offsets = (
+            {6: "Operator review at 6h."}
+            if manual_instruction_offsets is None
+            else dict(manual_instruction_offsets)
+        )
 
     def contract(self) -> WorkflowContract:
         return WorkflowContract(
@@ -84,11 +96,13 @@ class RollingRealDataWorkflow:
             if record.inflow is None or record.predict is None or record.level is None:
                 continue
             offset = index * loaded.time_step_hours
-            required, reason = self._needs_replan(offset, record.level, record.inflow, record.predict)
-            if not required:
+            if offset % self.thresholds.check_interval_hours != 0:
                 continue
             remaining_hours = loaded.duration_hours - offset
             if remaining_hours < self.thresholds.min_remaining_horizon_hours:
+                continue
+            required, reason = self._needs_replan(offset, record.level, record.inflow, record.predict)
+            if not required:
                 continue
             instruction = self.manual_instruction_offsets.get(offset, "")
             payload = self.adapter.to_payload(
@@ -150,6 +164,8 @@ class RollingRealDataWorkflow:
             return True, "relative_forecast_error"
         if level >= self.adapter.flood_limit_level - self.thresholds.high_level_margin_m:
             return True, "state_risk"
+        if self.thresholds.scheduled_check_replan:
+            return True, f"scheduled_{self.thresholds.check_interval_hours}h_check"
         return False, "retain_plan"
 
     def run(self, event: str | FloodEventData | None = None) -> WorkflowExecutionResult:
@@ -163,8 +179,9 @@ class RollingRealDataWorkflow:
             stage.payload["replan_reason"] = stage.replan_reason
             result = self.runner.run_scenario(stage.payload)
             stage_results.append(result)
-            if not result.get("success"):
+            if not result.get("success") and failure_reason is None:
                 failure_reason = result.get("acceptance_failure_reason") or "stage_failed"
+            if not result.get("success") and not self.continue_on_stage_failure:
                 break
         return WorkflowExecutionResult(
             workflow_type=self.workflow_type,

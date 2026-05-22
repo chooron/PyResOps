@@ -12,7 +12,14 @@ import yaml
 class AgentModelConfigLoader:
     """Load a real model profile and fail if required credentials are missing."""
 
-    REAL_PROVIDER_KEYED = {"anthropic", "deepseek", "dashscope", "openai_like", "opencode"}
+    REAL_PROVIDER_KEYED = {
+        "anthropic",
+        "deepseek",
+        "dashscope",
+        "gemini_native",
+        "openai_like",
+        "opencode",
+    }
 
     @staticmethod
     def _project_root() -> Path:
@@ -59,6 +66,8 @@ class AgentModelConfigLoader:
             raise ValueError(f"Unknown model profile {selected_profile!r}; available={available}")
 
         model_cfg = dict(models_cfg[selected_profile] or {})
+        if model_cfg.get("disabled"):
+            raise ValueError(f"Model profile {selected_profile!r} is disabled and cannot be executed")
         provider = str(model_cfg.get("provider", "")).strip()
         if not provider:
             raise ValueError(f"Model profile {selected_profile!r} is missing provider")
@@ -70,6 +79,14 @@ class AgentModelConfigLoader:
             env_value = os.getenv(str(api_key_env))
             if env_value:
                 model_cfg["api_key"] = env_value
+
+        base_url_env = model_cfg.pop("base_url_env", None)
+        if base_url_env:
+            env_value = os.getenv(str(base_url_env))
+            if env_value:
+                model_cfg["base_url"] = env_value
+        if not model_cfg.get("base_url") and model_cfg.get("default_base_url"):
+            model_cfg["base_url"] = model_cfg.get("default_base_url")
 
         if provider in cls.REAL_PROVIDER_KEYED and not model_cfg.get("api_key"):
             hint = api_key_env or "api_key"
